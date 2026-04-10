@@ -7,6 +7,6 @@ export default {
   dbCredentials: {
     url:
       process.env.DATABASE_URL?.replace('file:', '') ||
-      './data/fam-stream.db',
+      './data/movienight.db',
   },
 } satisfies Config;

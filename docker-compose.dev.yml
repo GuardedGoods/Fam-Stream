@@ -6,10 +6,10 @@ services:
     ports:
       - "8040:3000"
     volumes:
-      - fam-stream-data:/app/data
+      - movienight-data:/app/data
     env_file:
       - .env.local
     restart: unless-stopped
 
 volumes:
-  fam-stream-data:
+  movienight-data:

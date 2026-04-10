@@ -1,4 +1,4 @@
-# Fam-Stream
+# MovieNight
 
 A family-first streaming guide that filters movies based on your parental guidelines. Find age-appropriate movies across all your streaming services.
 
@@ -19,24 +19,24 @@ A family-first streaming guide that filters movies based on your parental guidel
 
 ```yaml
 services:
-  fam-stream:
-    image: ghcr.io/guardedgoods/fam-stream:latest
+  movienight:
+    image: ghcr.io/guardedgoods/movienight:latest
     ports:
       - "8040:3000"
     volumes:
-      - fam-stream-data:/app/data
+      - movienight-data:/app/data
     env_file:
       - .env
     restart: unless-stopped
 
 volumes:
-  fam-stream-data:
+  movienight-data:
 ```
 
 2. Create a `.env` file:
 
 ```env
-DATABASE_URL=file:/app/data/fam-stream.db
+DATABASE_URL=file:/app/data/movienight.db
 AUTH_SECRET=generate-with-openssl-rand-base64-32
 NEXTAUTH_URL=http://YOUR_SERVER_IP:8040
 AUTH_TRUST_HOST=true

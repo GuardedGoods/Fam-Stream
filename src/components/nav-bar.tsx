@@ -30,7 +30,7 @@ export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
           className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-gray-100 mr-6"
         >
           <Film className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          <span className="hidden sm:inline">Fam-Stream</span>
+          <span className="hidden sm:inline">MovieNight</span>
         </Link>
 
         {/* Center: Desktop Nav */}

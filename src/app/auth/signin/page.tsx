@@ -14,7 +14,7 @@ export default function SignInPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
             <Film className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-bold">Sign in to Fam-Stream</h1>
+          <h1 className="text-2xl font-bold">Sign in to MovieNight</h1>
           <p className="text-muted-foreground">
             Sign in to save your watchlist, preferences, and filter settings.
           </p>

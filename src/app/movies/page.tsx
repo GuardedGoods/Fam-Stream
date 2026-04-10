@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MovieGrid } from "@/components/movie-grid";
 import { FilterPanel } from "@/components/filter-panel";
 import { SearchBar } from "@/components/search-bar";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, RefreshCw } from "lucide-react";
 import type { MovieFilters } from "@/types";
 
 const GENRES = [
@@ -36,6 +36,8 @@ export default function MoviesPage() {
     { id: number; name: string; logoPath: string | null }[]
   >([]);
   const [total, setTotal] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const initChecked = useRef(false);
   const [filters, setFilters] = useState<MovieFilters>({
     sort: "popularity",
     sortDirection: "desc",
@@ -90,6 +92,46 @@ export default function MoviesPage() {
     fetchMovies();
   }, [fetchMovies]);
 
+  // Check if DB needs initial sync
+  useEffect(() => {
+    if (initChecked.current) return;
+    initChecked.current = true;
+
+    fetch("/api/sync/init")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "sync_started") {
+          setSyncing(true);
+          // Poll for movies every 5 seconds while syncing
+          const interval = setInterval(() => {
+            fetch("/api/movies?limit=1")
+              .then((r) => r.json())
+              .then((d) => {
+                if (d.total > 0) {
+                  setSyncing(false);
+                  clearInterval(interval);
+                  fetchMovies();
+                  // Refresh providers too
+                  fetch("/api/movies?providers=true")
+                    .then((r) => r.json())
+                    .then((pd) => {
+                      if (pd.providers) setProviders(pd.providers);
+                    })
+                    .catch(() => {});
+                }
+              })
+              .catch(() => {});
+          }, 5000);
+          // Stop polling after 5 minutes
+          setTimeout(() => {
+            clearInterval(interval);
+            setSyncing(false);
+          }, 300000);
+        }
+      })
+      .catch(() => {});
+  }, [fetchMovies]);
+
   useEffect(() => {
     fetch("/api/movies?providers=true")
       .then((r) => r.json())
@@ -115,6 +157,19 @@ export default function MoviesPage() {
 
   return (
     <div className="container mx-auto px-4 max-w-7xl py-6">
+      {/* Syncing Banner */}
+      {syncing && (
+        <div className="mb-6 p-4 rounded-lg border border-primary/30 bg-primary/5 flex items-center gap-3">
+          <RefreshCw className="h-5 w-5 text-primary animate-spin" />
+          <div>
+            <p className="font-medium text-primary">Syncing movie database...</p>
+            <p className="text-sm text-muted-foreground">
+              Fetching movies from TMDB. This only happens once. Movies will appear shortly.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>

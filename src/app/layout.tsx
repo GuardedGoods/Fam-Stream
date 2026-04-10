@@ -3,7 +3,7 @@ import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
 
 export const metadata: Metadata = {
-  title: "Fam-Stream | Family Movie Night Made Easy",
+  title: "MovieNight | Family Movie Night Made Easy",
   description:
     "A family-first streaming guide that filters movies based on your parental guidelines. Find age-appropriate movies across all your streaming services.",
   keywords: ["family movies", "content filter", "parental guide", "streaming"],
@@ -20,7 +20,7 @@ export default function RootLayout({
         <NavBar />
         <main className="flex-1">{children}</main>
         <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-          <p>Fam-Stream &mdash; Family Movie Night Made Easy</p>
+          <p>MovieNight &mdash; Family Movie Night Made Easy</p>
         </footer>
       </body>
     </html>
