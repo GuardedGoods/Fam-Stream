@@ -37,6 +37,7 @@ export default function MoviesPage() {
   >([]);
   const [total, setTotal] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const initChecked = useRef(false);
   const [filters, setFilters] = useState<MovieFilters>({
     sort: "popularity",
@@ -100,6 +101,10 @@ export default function MoviesPage() {
     fetch("/api/sync/init")
       .then((r) => r.json())
       .then((data) => {
+        if (data.status === "error") {
+          setSyncError(data.error);
+          return;
+        }
         if (data.status === "sync_started") {
           setSyncing(true);
           // Poll for movies every 5 seconds while syncing
@@ -157,6 +162,14 @@ export default function MoviesPage() {
 
   return (
     <div className="container mx-auto px-4 max-w-7xl py-6">
+      {/* Sync Error Banner */}
+      {syncError && (
+        <div className="mb-6 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+          <p className="font-medium text-destructive">Sync Error</p>
+          <p className="text-sm text-muted-foreground mt-1">{syncError}</p>
+        </div>
+      )}
+
       {/* Syncing Banner */}
       {syncing && (
         <div className="mb-6 p-4 rounded-lg border border-primary/30 bg-primary/5 flex items-center gap-3">

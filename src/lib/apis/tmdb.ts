@@ -168,18 +168,29 @@ async function tmdbFetch<T>(
   const apiKey = getApiKey();
   const url = new URL(`${TMDB_BASE_URL}${path}`);
 
+  // Support both v3 API key (short) and v4 Bearer token (long JWT)
+  // If the key is short (<64 chars), it's a v3 key passed as query param
+  // If it's long, it's a v4 Bearer token passed as Authorization header
+  const isV3Key = apiKey.length < 64;
+
+  if (isV3Key) {
+    url.searchParams.set('api_key', apiKey);
+  }
+
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);
     }
   }
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: 'application/json',
-    },
-  });
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (!isV3Key) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  const response = await fetch(url.toString(), { headers });
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');

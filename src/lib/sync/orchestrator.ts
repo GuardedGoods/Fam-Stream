@@ -66,8 +66,9 @@ export async function runSync(type: string) {
 async function syncMovies() {
   console.log("Syncing movies from TMDB...");
 
-  // Fetch popular movies across multiple pages
-  const pagesToFetch = 25; // 500 movies
+  // Phase 1: Quick insert - get basic movie data from discover endpoint
+  // This is fast (1 API call per 20 movies) so movies appear quickly
+  const pagesToFetch = 10; // 200 movies for quick initial load
   let totalInserted = 0;
 
   for (let page = 1; page <= pagesToFetch; page++) {
@@ -77,7 +78,6 @@ async function syncMovies() {
 
       for (const tmdbMovie of result.results) {
         try {
-          // Check if movie already exists
           const existing = db
             .select({ id: movies.id })
             .from(movies)
@@ -86,87 +86,108 @@ async function syncMovies() {
 
           if (existing) continue;
 
-          // Get full details
-          const details = await getMovieDetails(tmdbMovie.id);
-          if (!details) continue;
-
-          // Get MPAA rating
-          const certifications = await getMovieCertifications(tmdbMovie.id);
-          const mpaaRating = certifications || null;
-
-          // Generate slug
           const year = tmdbMovie.release_date?.substring(0, 4) || "";
           const slug = generateSlug(tmdbMovie.title, year);
 
-          // Get genres as array of names
-          const genreNames = details.genres?.map(
-            (g: { name: string }) => g.name
-          ) || [];
-
-          // Insert movie
+          // Insert with basic data from discover (no extra API calls)
           db.insert(movies)
             .values({
               tmdbId: tmdbMovie.id,
-              imdbId: details.imdb_id || null,
               title: tmdbMovie.title,
               slug,
               overview: tmdbMovie.overview || null,
               releaseDate: tmdbMovie.release_date || null,
-              runtimeMinutes: details.runtime || null,
               posterPath: tmdbMovie.poster_path || null,
               backdropPath: tmdbMovie.backdrop_path || null,
-              mpaaRating,
               popularity: tmdbMovie.popularity || null,
-              genres: JSON.stringify(genreNames),
+              genres: JSON.stringify([]),
               lastSyncedAt: new Date().toISOString(),
             })
             .run();
 
           totalInserted++;
-
-          // Get OMDb data (Rotten Tomatoes scores) if we have an IMDb ID
-          if (details.imdb_id) {
-            try {
-              const omdbData = await getMovieByImdbId(details.imdb_id);
-              if (omdbData) {
-                db.update(movies)
-                  .set({
-                    imdbRating: omdbData.imdbRating ?? null,
-                    rottenTomatoesScore: omdbData.rottenTomatoesScore,
-                    metacriticScore: omdbData.metacriticScore,
-                  })
-                  .where(eq(movies.tmdbId, tmdbMovie.id))
-                  .run();
-              }
-            } catch (e) {
-              console.error(
-                `OMDb error for ${tmdbMovie.title}:`,
-                e
-              );
-            }
-          }
-
-          // Get watch providers
-          try {
-            await syncMovieProviders(tmdbMovie.id);
-          } catch (e) {
-            console.error(
-              `Watch providers error for ${tmdbMovie.title}:`,
-              e
-            );
-          }
         } catch (e) {
-          console.error(`Error processing movie ${tmdbMovie.title}:`, e);
+          console.error(`Error inserting movie ${tmdbMovie.title}:`, e);
         }
       }
 
-      console.log(`Synced page ${page}/${pagesToFetch}, total inserted: ${totalInserted}`);
+      console.log(`Phase 1: page ${page}/${pagesToFetch}, inserted: ${totalInserted}`);
     } catch (e) {
       console.error(`Error fetching page ${page}:`, e);
     }
   }
 
-  console.log(`Movie sync complete. ${totalInserted} new movies added.`);
+  console.log(`Phase 1 complete. ${totalInserted} movies added. Starting enrichment...`);
+
+  // Phase 2: Enrich movies with details, ratings, and providers
+  // This runs in background - movies are already visible
+  const moviesToEnrich = db
+    .select({ id: movies.id, tmdbId: movies.tmdbId, title: movies.title })
+    .from(movies)
+    .where(isNull(movies.imdbId))
+    .limit(200)
+    .all();
+
+  let enriched = 0;
+  for (const movie of moviesToEnrich) {
+    try {
+      // Get full details (runtime, genres, imdb_id)
+      const details = await getMovieDetails(movie.tmdbId);
+      if (!details) continue;
+
+      // Get MPAA rating
+      const certifications = await getMovieCertifications(movie.tmdbId);
+
+      const genreNames = details.genres?.map(
+        (g: { name: string }) => g.name
+      ) || [];
+
+      db.update(movies)
+        .set({
+          imdbId: details.imdb_id || null,
+          runtimeMinutes: details.runtime || null,
+          mpaaRating: certifications || null,
+          genres: JSON.stringify(genreNames),
+        })
+        .where(eq(movies.id, movie.id))
+        .run();
+
+      // Get OMDb data (Rotten Tomatoes scores)
+      if (details.imdb_id) {
+        try {
+          const omdbData = await getMovieByImdbId(details.imdb_id);
+          if (omdbData) {
+            db.update(movies)
+              .set({
+                imdbRating: omdbData.imdbRating ?? null,
+                rottenTomatoesScore: omdbData.rottenTomatoesScore,
+                metacriticScore: omdbData.metacriticScore,
+              })
+              .where(eq(movies.id, movie.id))
+              .run();
+          }
+        } catch (e) {
+          console.error(`OMDb error for ${movie.title}:`, e);
+        }
+      }
+
+      // Get watch providers
+      try {
+        await syncMovieProviders(movie.tmdbId);
+      } catch (e) {
+        console.error(`Watch providers error for ${movie.title}:`, e);
+      }
+
+      enriched++;
+      if (enriched % 20 === 0) {
+        console.log(`Phase 2: enriched ${enriched}/${moviesToEnrich.length}`);
+      }
+    } catch (e) {
+      console.error(`Error enriching movie ${movie.title}:`, e);
+    }
+  }
+
+  console.log(`Movie sync complete. ${totalInserted} inserted, ${enriched} enriched.`);
 }
 
 async function syncMovieProviders(tmdbId: number) {
