@@ -3,9 +3,9 @@ version: '3.8'
 services:
   fam-stream:
     image: ghcr.io/guardedgoods/fam-stream:latest
-    container_name: fam-stream
+    container_name: movienight
     ports:
-      - "8040:3000"
+      - "8444:3000"
     env_file:
       - .env
     volumes:
@@ -32,7 +32,7 @@ volumes:
 #      DATABASE_URL=file:/app/data/fam-stream.db
 #      AUTH_SECRET=generate-with-openssl-rand-base64-32
 #      AUTH_TRUST_HOST=true
-#      NEXTAUTH_URL=http://YOUR_SERVER_IP:8040
+#      NEXTAUTH_URL=http://YOUR_SERVER_IP:8444
 #      GOOGLE_CLIENT_ID=your-google-client-id
 #      GOOGLE_CLIENT_SECRET=your-google-client-secret
 #      TMDB_API_KEY=your-tmdb-api-key
@@ -40,7 +40,7 @@ volumes:
 #      ADMIN_EMAILS=your-email@gmail.com
 #      OPENAI_API_KEY=optional
 # 6. Click "Build & Start"
-# 7. App at http://your-nas-ip:8040
+# 7. App at http://your-nas-ip:8444
 #
 # The image is automatically built and published to GitHub
 # Container Registry whenever code is pushed to the main branch.
