@@ -19,20 +19,6 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower-movienight
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Docker login credentials so Watchtower can pull from private ghcr.io
-      - /root/.docker/config.json:/config.json:ro
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300
-      - WATCHTOWER_LABEL_ENABLE=true
-    # Polls every 5 minutes. Only updates containers with the watchtower label.
-
 volumes:
   movienight-data:
 
