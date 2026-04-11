@@ -298,6 +298,7 @@ function MoviesPageInner() {
   const [movies, setMovies] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const appendNextFetch = useRef(false);
   const [showFilters, setShowFilters] = useState(false);
   const [providers, setProviders] = useState<
     { id: number; name: string; logoPath: string | null }[]
@@ -329,7 +330,9 @@ function MoviesPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const fetchMovies = useCallback(async (append = false) => {
+  const fetchMovies = useCallback(async () => {
+    const append = appendNextFetch.current;
+    appendNextFetch.current = false;
     if (append) {
       setLoadingMore(true);
     } else {
@@ -463,9 +466,8 @@ function MoviesPageInner() {
   };
 
   const handleLoadMore = () => {
-    const nextPage = (filters.page || 1) + 1;
-    setFilters((prev) => ({ ...prev, page: nextPage }));
-    fetchMovies(true);
+    appendNextFetch.current = true;
+    setFilters((prev) => ({ ...prev, page: (prev.page || 1) + 1 }));
   };
 
   const hasMore = movies.length < total;
