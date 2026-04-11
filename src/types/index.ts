@@ -73,6 +73,8 @@ export interface MovieFilters {
   maxSexualContentScore?: number;
   maxScaryScore?: number;
   streamingServices?: number[];
+  minYear?: number;
+  maxYear?: number;
   hideWatched?: boolean;
   hideUnrated?: boolean;
   blockedWords?: string[];

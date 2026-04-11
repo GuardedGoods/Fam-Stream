@@ -597,7 +597,9 @@ export async function scrapeContentForMovie(movie: {
           sexualNotes: csmData.sex.notes || null,
           scaryNotes: null,
           recommendedAge: csmData.recommendedAge || null,
-          profanityWords: null,
+          profanityWords: JSON.stringify(
+            extractProfanityWords(csmData.language.notes || "")
+          ),
           sourceUrl: csmData.sourceUrl || null,
           scrapedAt: new Date().toISOString(),
         })
@@ -671,7 +673,7 @@ export async function scrapeContentForMovie(movie: {
       violenceNotes: allViolenceNotes || null,
       sexualNotes: allSexualNotes || null,
       scaryNotes: allScaryNotes || null,
-      specificWords: JSON.stringify(Object.keys(allWords)),
+      specificWords: JSON.stringify(allWords),
       updatedAt: new Date().toISOString(),
     };
 

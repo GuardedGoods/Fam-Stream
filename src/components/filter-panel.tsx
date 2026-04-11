@@ -1,9 +1,10 @@
 "use client";
 
-import { RotateCcw } from "lucide-react";
+import { ArrowDownNarrowWide, ArrowUpNarrowWide, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -35,6 +36,7 @@ const MPAA_RATINGS = ["G", "PG", "PG-13", "R"];
 const SORT_OPTIONS = [
   { value: "popularity", label: "Popularity" },
   { value: "imdb_rating", label: "Rating" },
+  { value: "rt_score", label: "Rotten Tomatoes" },
   { value: "release_date", label: "Release Date" },
   { value: "title", label: "Title" },
 ] as const;
@@ -241,6 +243,55 @@ function FilterContent({
         </>
       )}
 
+      {/* Release Year */}
+      <div>
+        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+          Release Year
+        </Label>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Label htmlFor="min-year" className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+              From
+            </Label>
+            <Input
+              id="min-year"
+              type="number"
+              min={1900}
+              max={2099}
+              placeholder="Min"
+              value={currentFilters.minYear ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                updateFilter({
+                  minYear: raw === "" ? undefined : Number(raw),
+                });
+              }}
+            />
+          </div>
+          <div className="flex-1">
+            <Label htmlFor="max-year" className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+              To
+            </Label>
+            <Input
+              id="max-year"
+              type="number"
+              min={1900}
+              max={2099}
+              placeholder="Max"
+              value={currentFilters.maxYear ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                updateFilter({
+                  maxYear: raw === "" ? undefined : Number(raw),
+                });
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
       {/* Genres */}
       {genreNames.length > 0 && (
         <>
@@ -286,25 +337,51 @@ function FilterContent({
         <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 block">
           Sort By
         </Label>
-        <Select
-          value={currentFilters.sort ?? "popularity"}
-          onValueChange={(val) =>
-            updateFilter({
-              sort: val as MovieFilters["sort"],
-            })
-          }
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Sort by..." />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            value={currentFilters.sort ?? "popularity"}
+            onValueChange={(val) =>
+              updateFilter({
+                sort: val as MovieFilters["sort"],
+              })
+            }
+          >
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() =>
+              updateFilter({
+                sortDirection:
+                  (currentFilters.sortDirection ?? "desc") === "desc"
+                    ? "asc"
+                    : "desc",
+              })
+            }
+            aria-label={
+              (currentFilters.sortDirection ?? "desc") === "desc"
+                ? "Sort descending"
+                : "Sort ascending"
+            }
+          >
+            {(currentFilters.sortDirection ?? "desc") === "desc" ? (
+              <ArrowDownNarrowWide className="h-4 w-4" />
+            ) : (
+              <ArrowUpNarrowWide className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <Separator />

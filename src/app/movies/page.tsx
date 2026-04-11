@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { MovieGrid } from "@/components/movie-grid";
 import { FilterPanel } from "@/components/filter-panel";
 import { SearchBar } from "@/components/search-bar";
@@ -28,7 +29,254 @@ const GENRES = [
   "Western",
 ];
 
-export default function MoviesPage() {
+/** Keys we persist in the URL (page/limit are excluded to reduce noise). */
+const URL_FILTER_KEYS = [
+  "search",
+  "genres",
+  "mpaaRatings",
+  "maxLanguageScore",
+  "maxViolenceScore",
+  "maxSexualContentScore",
+  "maxScaryScore",
+  "streamingServices",
+  "hideWatched",
+  "hideUnrated",
+  "sort",
+  "sortDirection",
+  "minYear",
+  "maxYear",
+] as const;
+
+// ---------------------------------------------------------------------------
+// Helpers: URL <-> MovieFilters
+// ---------------------------------------------------------------------------
+
+function parseFiltersFromURL(params: URLSearchParams): MovieFilters {
+  const filters: MovieFilters = {
+    page: 1,
+    limit: 24,
+  };
+
+  const search = params.get("search");
+  if (search) filters.search = search;
+
+  const genres = params.get("genres");
+  if (genres) filters.genres = genres.split(",");
+
+  const mpaaRatings = params.get("mpaaRatings");
+  if (mpaaRatings) filters.mpaaRatings = mpaaRatings.split(",");
+
+  const maxLanguageScore = params.get("maxLanguageScore");
+  if (maxLanguageScore !== null) filters.maxLanguageScore = Number(maxLanguageScore);
+
+  const maxViolenceScore = params.get("maxViolenceScore");
+  if (maxViolenceScore !== null) filters.maxViolenceScore = Number(maxViolenceScore);
+
+  const maxSexualContentScore = params.get("maxSexualContentScore");
+  if (maxSexualContentScore !== null) filters.maxSexualContentScore = Number(maxSexualContentScore);
+
+  const maxScaryScore = params.get("maxScaryScore");
+  if (maxScaryScore !== null) filters.maxScaryScore = Number(maxScaryScore);
+
+  const streamingServices = params.get("streamingServices");
+  if (streamingServices) filters.streamingServices = streamingServices.split(",").map(Number);
+
+  if (params.get("hideWatched") === "true") filters.hideWatched = true;
+  if (params.get("hideUnrated") === "true") filters.hideUnrated = true;
+
+  const sort = params.get("sort");
+  if (sort) filters.sort = sort as MovieFilters["sort"];
+
+  const sortDirection = params.get("sortDirection");
+  if (sortDirection) filters.sortDirection = sortDirection as MovieFilters["sortDirection"];
+
+  const minYear = params.get("minYear");
+  if (minYear !== null) filters.minYear = Number(minYear);
+
+  const maxYear = params.get("maxYear");
+  if (maxYear !== null) filters.maxYear = Number(maxYear);
+
+  return filters;
+}
+
+function filtersToURLParams(filters: MovieFilters): URLSearchParams {
+  const params = new URLSearchParams();
+
+  if (filters.search) params.set("search", filters.search);
+  if (filters.genres?.length) params.set("genres", filters.genres.join(","));
+  if (filters.mpaaRatings?.length) params.set("mpaaRatings", filters.mpaaRatings.join(","));
+  if (filters.maxLanguageScore !== undefined) params.set("maxLanguageScore", String(filters.maxLanguageScore));
+  if (filters.maxViolenceScore !== undefined) params.set("maxViolenceScore", String(filters.maxViolenceScore));
+  if (filters.maxSexualContentScore !== undefined) params.set("maxSexualContentScore", String(filters.maxSexualContentScore));
+  if (filters.maxScaryScore !== undefined) params.set("maxScaryScore", String(filters.maxScaryScore));
+  if (filters.streamingServices?.length) params.set("streamingServices", filters.streamingServices.join(","));
+  if (filters.hideWatched) params.set("hideWatched", "true");
+  if (filters.hideUnrated) params.set("hideUnrated", "true");
+  if (filters.sort && filters.sort !== "popularity") params.set("sort", filters.sort);
+  if (filters.sortDirection && filters.sortDirection !== "desc") params.set("sortDirection", filters.sortDirection);
+  if (filters.minYear !== undefined) params.set("minYear", String(filters.minYear));
+  if (filters.maxYear !== undefined) params.set("maxYear", String(filters.maxYear));
+
+  return params;
+}
+
+// ---------------------------------------------------------------------------
+// Count how many non-default filters are active (for badge)
+// ---------------------------------------------------------------------------
+
+function countActiveFilters(filters: MovieFilters): number {
+  let count = 0;
+  if (filters.search) count++;
+  if (filters.genres?.length) count += filters.genres.length;
+  if (filters.mpaaRatings?.length) count += filters.mpaaRatings.length;
+  if (filters.maxLanguageScore !== undefined && filters.maxLanguageScore < 5) count++;
+  if (filters.maxViolenceScore !== undefined && filters.maxViolenceScore < 5) count++;
+  if (filters.maxSexualContentScore !== undefined && filters.maxSexualContentScore < 5) count++;
+  if (filters.maxScaryScore !== undefined && filters.maxScaryScore < 5) count++;
+  if (filters.streamingServices?.length) count += filters.streamingServices.length;
+  if (filters.hideWatched) count++;
+  if (filters.hideUnrated) count++;
+  if (filters.minYear !== undefined) count++;
+  if (filters.maxYear !== undefined) count++;
+  return count;
+}
+
+// ---------------------------------------------------------------------------
+// Active filter chip descriptions
+// ---------------------------------------------------------------------------
+
+interface FilterChip {
+  label: string;
+  onRemove: () => void;
+}
+
+function getActiveFilterChips(
+  filters: MovieFilters,
+  providers: { id: number; name: string }[],
+  onFilterChange: (f: Partial<MovieFilters>) => void
+): FilterChip[] {
+  const chips: FilterChip[] = [];
+
+  // Search
+  if (filters.search) {
+    chips.push({
+      label: `"${filters.search}"`,
+      onRemove: () => onFilterChange({ search: undefined }),
+    });
+  }
+
+  // Genres
+  if (filters.genres?.length) {
+    for (const genre of filters.genres) {
+      chips.push({
+        label: genre,
+        onRemove: () =>
+          onFilterChange({
+            genres: filters.genres!.filter((g) => g !== genre),
+          }),
+      });
+    }
+  }
+
+  // MPAA ratings
+  if (filters.mpaaRatings?.length) {
+    for (const rating of filters.mpaaRatings) {
+      chips.push({
+        label: rating,
+        onRemove: () =>
+          onFilterChange({
+            mpaaRatings: filters.mpaaRatings!.filter((r) => r !== rating),
+          }),
+      });
+    }
+  }
+
+  // Content score sliders (only show if below max of 5)
+  if (filters.maxLanguageScore !== undefined && filters.maxLanguageScore < 5) {
+    chips.push({
+      label: `Language \u2264 ${filters.maxLanguageScore}`,
+      onRemove: () => onFilterChange({ maxLanguageScore: undefined }),
+    });
+  }
+  if (filters.maxViolenceScore !== undefined && filters.maxViolenceScore < 5) {
+    chips.push({
+      label: `Violence \u2264 ${filters.maxViolenceScore}`,
+      onRemove: () => onFilterChange({ maxViolenceScore: undefined }),
+    });
+  }
+  if (filters.maxSexualContentScore !== undefined && filters.maxSexualContentScore < 5) {
+    chips.push({
+      label: `Sexual \u2264 ${filters.maxSexualContentScore}`,
+      onRemove: () => onFilterChange({ maxSexualContentScore: undefined }),
+    });
+  }
+  if (filters.maxScaryScore !== undefined && filters.maxScaryScore < 5) {
+    chips.push({
+      label: `Scary \u2264 ${filters.maxScaryScore}`,
+      onRemove: () => onFilterChange({ maxScaryScore: undefined }),
+    });
+  }
+
+  // Streaming services
+  if (filters.streamingServices?.length) {
+    for (const id of filters.streamingServices) {
+      const provider = providers.find((p) => p.id === id);
+      chips.push({
+        label: provider?.name ?? `Service ${id}`,
+        onRemove: () =>
+          onFilterChange({
+            streamingServices: filters.streamingServices!.filter(
+              (s) => s !== id
+            ),
+          }),
+      });
+    }
+  }
+
+  // Year range
+  if (filters.minYear !== undefined && filters.maxYear !== undefined) {
+    chips.push({
+      label: `${filters.minYear}\u2013${filters.maxYear}`,
+      onRemove: () => onFilterChange({ minYear: undefined, maxYear: undefined }),
+    });
+  } else if (filters.minYear !== undefined) {
+    chips.push({
+      label: `From ${filters.minYear}`,
+      onRemove: () => onFilterChange({ minYear: undefined }),
+    });
+  } else if (filters.maxYear !== undefined) {
+    chips.push({
+      label: `Through ${filters.maxYear}`,
+      onRemove: () => onFilterChange({ maxYear: undefined }),
+    });
+  }
+
+  // Boolean toggles
+  if (filters.hideWatched) {
+    chips.push({
+      label: "Hide Watched",
+      onRemove: () => onFilterChange({ hideWatched: false }),
+    });
+  }
+  if (filters.hideUnrated) {
+    chips.push({
+      label: "Hide Unrated",
+      onRemove: () => onFilterChange({ hideUnrated: false }),
+    });
+  }
+
+  return chips;
+}
+
+// ---------------------------------------------------------------------------
+// Inner component (needs useSearchParams wrapped in Suspense)
+// ---------------------------------------------------------------------------
+
+function MoviesPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [movies, setMovies] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -39,12 +287,28 @@ export default function MoviesPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const initChecked = useRef(false);
-  const [filters, setFilters] = useState<MovieFilters>({
-    sort: "popularity",
-    sortDirection: "desc",
-    page: 1,
-    limit: 24,
-  });
+
+  // Initialize filters from URL search params (supports back-button / refresh / sharing)
+  const [filters, setFilters] = useState<MovieFilters>(() =>
+    parseFiltersFromURL(searchParams)
+  );
+
+  // Ref to prevent the initial URL update triggered by mounting
+  const isInitialMount = useRef(true);
+
+  // Sync filter state -> URL whenever filters change (skip first render to
+  // avoid replacing the URL with the same params we just read from it).
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const urlParams = filtersToURLParams(filters);
+    const qs = urlParams.toString();
+    const newUrl = qs ? `${pathname}?${qs}` : pathname;
+    router.replace(newUrl, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const fetchMovies = useCallback(async () => {
     setLoading(true);
@@ -75,6 +339,10 @@ export default function MoviesPage() {
         params.set("sortDirection", filters.sortDirection);
       if (filters.page) params.set("page", String(filters.page));
       if (filters.limit) params.set("limit", String(filters.limit));
+      if (filters.minYear !== undefined)
+        params.set("minYear", String(filters.minYear));
+      if (filters.maxYear !== undefined)
+        params.set("maxYear", String(filters.maxYear));
 
       const res = await fetch(`/api/movies?${params.toString()}`);
       if (res.ok) {
@@ -151,7 +419,16 @@ export default function MoviesPage() {
   };
 
   const handleSearch = (query: string) => {
-    setFilters((prev) => ({ ...prev, search: query, page: 1 }));
+    setFilters((prev) => ({ ...prev, search: query || undefined, page: 1 }));
+  };
+
+  const handleClearAllFilters = () => {
+    setFilters({
+      sort: "popularity",
+      sortDirection: "desc",
+      page: 1,
+      limit: 24,
+    });
   };
 
   const handleLoadMore = () => {
@@ -159,6 +436,8 @@ export default function MoviesPage() {
   };
 
   const totalPages = Math.ceil(total / (filters.limit || 24));
+  const activeFilterCount = countActiveFilters(filters);
+  const filterChips = getActiveFilterChips(filters, providers, handleFilterChange);
 
   return (
     <div className="container mx-auto px-4 max-w-7xl py-6">
@@ -208,10 +487,42 @@ export default function MoviesPage() {
             ) : (
               <SlidersHorizontal className="h-4 w-4" />
             )}
-            Filters
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
           </button>
         </div>
       </div>
+
+      {/* Active filter chips */}
+      {filterChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {filterChips.map((chip, i) => (
+            <span
+              key={`${chip.label}-${i}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium"
+            >
+              {chip.label}
+              <button
+                type="button"
+                onClick={chip.onRemove}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+                aria-label={`Remove ${chip.label} filter`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          {filterChips.length > 1 && (
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Clear All
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-6">
         {/* Desktop filter sidebar */}
@@ -284,5 +595,25 @@ export default function MoviesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exported page: wrap in Suspense because useSearchParams requires it for
+// prerendering (see Next.js docs on useSearchParams).
+// ---------------------------------------------------------------------------
+
+export default function MoviesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 max-w-7xl py-6">
+          <h1 className="text-2xl md:text-3xl font-bold">Browse Movies</h1>
+          <p className="text-sm text-muted-foreground mt-1">Loading...</p>
+        </div>
+      }
+    >
+      <MoviesPageInner />
+    </Suspense>
   );
 }

@@ -10,6 +10,7 @@ import {
   eq,
   like,
   lte,
+  gte,
   inArray,
   desc,
   asc,
@@ -51,6 +52,8 @@ export async function GET(request: NextRequest) {
     ?.split(",")
     .filter(Boolean)
     .map(Number);
+  const minYear = searchParams.get("minYear");
+  const maxYear = searchParams.get("maxYear");
   const hideUnrated = searchParams.get("hideUnrated") === "true";
   const sort = searchParams.get("sort") || "popularity";
   const sortDirection = searchParams.get("sortDirection") || "desc";
@@ -74,6 +77,14 @@ export async function GET(request: NextRequest) {
       for (const genre of genres) {
         conditions.push(like(movies.genres, `%${genre}%`));
       }
+    }
+
+    // Release year filter
+    if (minYear) {
+      conditions.push(gte(movies.releaseDate, `${minYear}-01-01`));
+    }
+    if (maxYear) {
+      conditions.push(lte(movies.releaseDate, `${maxYear}-12-31`));
     }
 
     // Streaming service filter — applied as an EXISTS subquery so pagination is correct.

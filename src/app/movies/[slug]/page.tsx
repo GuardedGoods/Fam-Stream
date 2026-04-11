@@ -6,6 +6,7 @@ import {
   Clock,
   Calendar,
   ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import { ContentBadge } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
@@ -59,6 +60,26 @@ function getMovie(slug: string) {
     .where(eq(movieProviders.movieId, movie.id))
     .all();
 
+  // Parse specificWords — supports both old format (string[]) and new format ({word: count})
+  let specificWords: string[] = [];
+  let profanityWordCounts: Record<string, number> = {};
+  if (aggregated?.specificWords) {
+    try {
+      const parsed = JSON.parse(aggregated.specificWords);
+      if (Array.isArray(parsed)) {
+        specificWords = parsed;
+      } else if (typeof parsed === "object" && parsed !== null) {
+        profanityWordCounts = parsed;
+        specificWords = Object.keys(parsed);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  // Find recommended age from any source
+  const recommendedAge = sources.find((s) => s.recommendedAge)?.recommendedAge ?? null;
+
   return {
     ...movie,
     genres: movie.genres ? JSON.parse(movie.genres) : [],
@@ -72,11 +93,11 @@ function getMovie(slug: string) {
           violenceNotes: aggregated.violenceNotes,
           sexualNotes: aggregated.sexualNotes,
           scaryNotes: aggregated.scaryNotes,
-          specificWords: aggregated.specificWords
-            ? JSON.parse(aggregated.specificWords)
-            : [],
+          specificWords,
+          profanityWordCounts,
         }
       : null,
+    recommendedAge,
     contentSources: sources.map((s) => ({
       source: s.source,
       languageScore: s.languageScore,
@@ -92,8 +113,16 @@ function getMovie(slug: string) {
       sourceUrl: s.sourceUrl,
     })),
     streamingProviders: providers as StreamingProviderInfo[],
-    userStatus: null,
   };
+}
+
+function formatSourceName(source: string): string {
+  switch (source) {
+    case "kids-in-mind": return "Kids-In-Mind";
+    case "imdb": return "IMDb Parental Guide";
+    case "common-sense-media": return "Common Sense Media";
+    default: return source;
+  }
 }
 
 export default async function MovieDetailPage({
@@ -187,6 +216,12 @@ export default async function MovieDetailPage({
                   {movie.mpaaRating}
                 </span>
               )}
+              {movie.recommendedAge && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 font-medium">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Ages {movie.recommendedAge}+
+                </span>
+              )}
               {(movie.genres as string[]).map((g: string) => (
                 <span
                   key={g}
@@ -209,7 +244,6 @@ export default async function MovieDetailPage({
               {movie.rottenTomatoesScore !== null &&
                 movie.rottenTomatoesScore !== undefined && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <span className="text-lg">🍅</span>
                     <span className="font-bold">
                       {movie.rottenTomatoesScore}%
                     </span>
@@ -284,6 +318,28 @@ export default async function MovieDetailPage({
             </div>
           )}
 
+          {/* Specific language found with counts */}
+          {hasRating &&
+            contentRating.specificWords &&
+            contentRating.specificWords.length > 0 && (
+              <div className="rounded-lg border border-border p-4">
+                <h3 className="font-semibold mb-2">Specific Language Found</h3>
+                <div className="flex flex-wrap gap-2">
+                  {contentRating.specificWords.map((word: string) => {
+                    const count = contentRating.profanityWordCounts[word];
+                    return (
+                      <span
+                        key={word}
+                        className="inline-flex items-center px-2 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium"
+                      >
+                        {word}{count && count > 1 ? ` (${count}\u00d7)` : ""}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           {/* Detailed notes */}
           {hasRating && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -301,25 +357,6 @@ export default async function MovieDetailPage({
               )}
             </div>
           )}
-
-          {/* Specific words found */}
-          {hasRating &&
-            contentRating.specificWords &&
-            contentRating.specificWords.length > 0 && (
-              <div className="rounded-lg border border-border p-4">
-                <h3 className="font-semibold mb-2">Specific Language Found</h3>
-                <div className="flex flex-wrap gap-2">
-                  {contentRating.specificWords.map((word: string) => (
-                    <span
-                      key={word}
-                      className="inline-flex items-center px-2 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium"
-                    >
-                      {word}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
         </section>
 
         {/* Where to Watch */}
@@ -330,32 +367,98 @@ export default async function MovieDetailPage({
           </section>
         )}
 
-        {/* Content sources */}
+        {/* Per-Source Content Breakdown */}
         {movie.contentSources && movie.contentSources.length > 0 && (
           <section className="mt-12 mb-12 space-y-4">
-            <h2 className="text-lg font-semibold text-muted-foreground">
-              Content Rating Sources
-            </h2>
-            <div className="flex flex-wrap gap-2">
+            <h2 className="text-xl font-bold">Ratings by Source</h2>
+            <div className="space-y-3">
               {movie.contentSources.map(
-                (source: { source: string; sourceUrl: string | null }) => (
-                  <span key={source.source}>
-                    {source.sourceUrl ? (
-                      <a
-                        href={source.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                      >
-                        {source.source}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        {source.source}
-                      </span>
-                    )}
-                  </span>
+                (source: {
+                  source: string;
+                  languageScore: number | null;
+                  violenceScore: number | null;
+                  sexualContentScore: number | null;
+                  scaryScore: number | null;
+                  languageNotes: string | null;
+                  violenceNotes: string | null;
+                  sexualNotes: string | null;
+                  scaryNotes: string | null;
+                  profanityWords: Record<string, number>;
+                  recommendedAge: number | null;
+                  sourceUrl: string | null;
+                }) => (
+                  <details
+                    key={source.source}
+                    className="rounded-lg border border-border overflow-hidden"
+                  >
+                    <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-sm">
+                          {formatSourceName(source.source)}
+                        </span>
+                        {source.recommendedAge && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            Ages {source.recommendedAge}+
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {source.languageScore !== null && (
+                          <ContentBadge score={source.languageScore} label="L" size="sm" />
+                        )}
+                        {source.violenceScore !== null && (
+                          <ContentBadge score={source.violenceScore} label="V" size="sm" />
+                        )}
+                        {source.sexualContentScore !== null && (
+                          <ContentBadge score={source.sexualContentScore} label="S" size="sm" />
+                        )}
+                        {source.scaryScore !== null && (
+                          <ContentBadge score={source.scaryScore} label="Sc" size="sm" />
+                        )}
+                        {source.sourceUrl && (
+                          <a
+                            href={source.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline ml-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </div>
+                    </summary>
+                    <div className="border-t border-border p-4 space-y-3 bg-muted/20">
+                      {/* Profanity words from this source */}
+                      {Object.keys(source.profanityWords).length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Language found:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Object.entries(source.profanityWords).map(([word, count]) => (
+                              <span
+                                key={word}
+                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-xs"
+                              >
+                                {word}{(count as number) > 1 ? ` (${count}\u00d7)` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {source.languageNotes && (
+                        <NoteBlock label="Language" text={source.languageNotes} />
+                      )}
+                      {source.violenceNotes && (
+                        <NoteBlock label="Violence" text={source.violenceNotes} />
+                      )}
+                      {source.sexualNotes && (
+                        <NoteBlock label="Sexual Content" text={source.sexualNotes} />
+                      )}
+                      {source.scaryNotes && (
+                        <NoteBlock label="Scary/Intense" text={source.scaryNotes} />
+                      )}
+                    </div>
+                  </details>
                 )
               )}
             </div>
@@ -370,6 +473,15 @@ function DetailCard({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-lg border border-border p-4">
       <h3 className="font-semibold mb-2 text-sm">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
+function NoteBlock({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-muted-foreground mb-0.5">{label}:</p>
       <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
     </div>
   );
