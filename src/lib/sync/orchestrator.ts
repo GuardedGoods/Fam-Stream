@@ -252,11 +252,16 @@ async function syncMovies() {
         (g: { name: string }) => g.name
       ) || [];
 
+      // Preserve Phase 1.5's MPAA rating if it was already set (discover-based
+      // certification is more reliable than per-movie release_dates scraping)
+      const currentMovie = db.select({ mpaaRating: movies.mpaaRating })
+        .from(movies).where(eq(movies.id, movie.id)).get();
+
       db.update(movies)
         .set({
           imdbId: details.imdb_id || null,
           runtimeMinutes: details.runtime || null,
-          mpaaRating: certifications || null,
+          mpaaRating: currentMovie?.mpaaRating || certifications || null,
           genres: JSON.stringify(genreNames),
         })
         .where(eq(movies.id, movie.id))
