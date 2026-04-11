@@ -76,6 +76,12 @@ async function syncMovies() {
     { id: 386, name: "Peacock" },
     { id: 531, name: "Paramount Plus" },
     { id: 15, name: "Hulu" },
+    { id: 1899, name: "Max" },
+    { id: 283, name: "Crunchyroll" },
+    { id: 387, name: "Peacock Premium" },
+    { id: 37, name: "Showtime" },
+    { id: 73, name: "Tubi" },
+    { id: 300, name: "Pluto TV" },
   ];
 
   let totalInserted = 0;
@@ -83,7 +89,7 @@ async function syncMovies() {
   // Phase 1: Fetch movies from each streaming service
   // TMDB discover with watch_providers filter gets movies available on each service
   for (const provider of STREAMING_PROVIDERS) {
-    const pagesPerProvider = 25; // 500 movies per service (many overlap)
+    const pagesPerProvider = 50; // up to 1000 movies per service
     console.log(`Fetching movies from ${provider.name}...`);
 
     for (let page = 1; page <= pagesPerProvider; page++) {
@@ -137,7 +143,7 @@ async function syncMovies() {
 
   // Also fetch general popular/top-rated movies not tied to a specific service
   console.log("Fetching general popular movies...");
-  for (let page = 1; page <= 25; page++) {
+  for (let page = 1; page <= 50; page++) {
     try {
       const result = await discoverMovies(page);
       if (!result?.results || result.results.length === 0) break;
