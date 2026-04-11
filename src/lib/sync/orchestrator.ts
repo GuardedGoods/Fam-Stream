@@ -200,7 +200,7 @@ async function syncMovies() {
     .select({ id: movies.id, tmdbId: movies.tmdbId, title: movies.title })
     .from(movies)
     .where(isNull(movies.imdbId))
-    .limit(200)
+    .limit(2000)
     .all();
 
   let enriched = 0;

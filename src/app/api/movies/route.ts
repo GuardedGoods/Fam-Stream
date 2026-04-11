@@ -6,7 +6,19 @@ import {
   movieProviders,
   streamingProviders,
 } from "@/lib/db/schema";
-import { eq, like, lte, inArray, desc, asc, sql, and } from "drizzle-orm";
+import {
+  eq,
+  like,
+  lte,
+  inArray,
+  desc,
+  asc,
+  sql,
+  and,
+  exists,
+  isNull,
+  or,
+} from "drizzle-orm";
 
 // The 7 streaming services we support
 const ALLOWED_PROVIDER_IDS = [8, 9, 337, 350, 384, 386, 531];
@@ -49,7 +61,7 @@ export async function GET(request: NextRequest) {
   const offset = (page - 1) * limit;
 
   try {
-    // Build conditions
+    // Build conditions array — all filters go here so both count and results queries stay in sync
     const conditions = [];
 
     if (search) {
@@ -61,34 +73,64 @@ export async function GET(request: NextRequest) {
     }
 
     if (genres && genres.length > 0) {
-      // Filter movies whose genres JSON array contains any of the selected genres
       for (const genre of genres) {
         conditions.push(like(movies.genres, `%${genre}%`));
       }
     }
 
-    // Content score filters - join with aggregated ratings
-    if (maxLanguageScore) {
+    // Streaming service filter — applied as an EXISTS subquery so pagination is correct.
+    // Previously this was applied post-query in memory (broken: showed only 3 results per page).
+    if (streamingServiceIds && streamingServiceIds.length > 0) {
       conditions.push(
-        lte(contentRatingsAggregated.languageScore, parseInt(maxLanguageScore))
-      );
-    }
-    if (maxViolenceScore) {
-      conditions.push(
-        lte(contentRatingsAggregated.violenceScore, parseInt(maxViolenceScore))
-      );
-    }
-    if (maxSexualContentScore) {
-      conditions.push(
-        lte(
-          contentRatingsAggregated.sexualContentScore,
-          parseInt(maxSexualContentScore)
+        exists(
+          db
+            .select({ one: sql<number>`1` })
+            .from(movieProviders)
+            .where(
+              and(
+                eq(movieProviders.movieId, movies.id),
+                inArray(movieProviders.providerId, streamingServiceIds),
+                eq(movieProviders.type, "flatrate")
+              )
+            )
         )
       );
     }
-    if (maxScaryScore) {
+
+    // Content score filters — reference contentRatingsAggregated columns (joined below).
+    // When hideUnrated=false (LEFT JOIN), unrated movies have NULL scores. NULL <= N is false
+    // in SQL, which would exclude all unrated movies. Wrap with OR IS NULL so they pass through.
+    // When hideUnrated=true (INNER JOIN), scores are non-null so simple lte is fine.
+    if (maxLanguageScore) {
+      const maxVal = parseInt(maxLanguageScore);
       conditions.push(
-        lte(contentRatingsAggregated.scaryScore, parseInt(maxScaryScore))
+        hideUnrated
+          ? lte(contentRatingsAggregated.languageScore, maxVal)
+          : or(isNull(contentRatingsAggregated.languageScore), lte(contentRatingsAggregated.languageScore, maxVal))
+      );
+    }
+    if (maxViolenceScore) {
+      const maxVal = parseInt(maxViolenceScore);
+      conditions.push(
+        hideUnrated
+          ? lte(contentRatingsAggregated.violenceScore, maxVal)
+          : or(isNull(contentRatingsAggregated.violenceScore), lte(contentRatingsAggregated.violenceScore, maxVal))
+      );
+    }
+    if (maxSexualContentScore) {
+      const maxVal = parseInt(maxSexualContentScore);
+      conditions.push(
+        hideUnrated
+          ? lte(contentRatingsAggregated.sexualContentScore, maxVal)
+          : or(isNull(contentRatingsAggregated.sexualContentScore), lte(contentRatingsAggregated.sexualContentScore, maxVal))
+      );
+    }
+    if (maxScaryScore) {
+      const maxVal = parseInt(maxScaryScore);
+      conditions.push(
+        hideUnrated
+          ? lte(contentRatingsAggregated.scaryScore, maxVal)
+          : or(isNull(contentRatingsAggregated.scaryScore), lte(contentRatingsAggregated.scaryScore, maxVal))
       );
     }
 
@@ -112,7 +154,6 @@ export async function GET(request: NextRequest) {
         orderBy = dir(movies.popularity);
     }
 
-    // Count query
     const hasContentFilters =
       maxLanguageScore ||
       maxViolenceScore ||
@@ -120,15 +161,14 @@ export async function GET(request: NextRequest) {
       maxScaryScore ||
       hideUnrated;
 
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     let countResult;
     let movieResults;
 
     if (hasContentFilters) {
-      const whereClause =
-        conditions.length > 0 ? and(...conditions) : undefined;
-
       if (hideUnrated) {
-        // Inner join - only movies with ratings
+        // Inner join — only movies that have a content rating row
         countResult = db
           .select({ count: sql<number>`count(*)` })
           .from(movies)
@@ -173,7 +213,7 @@ export async function GET(request: NextRequest) {
           .offset(offset)
           .all();
       } else {
-        // Left join - include unrated
+        // Left join — include unrated movies; NULL score conditions handled above with OR IS NULL
         countResult = db
           .select({ count: sql<number>`count(*)` })
           .from(movies)
@@ -219,9 +259,6 @@ export async function GET(request: NextRequest) {
           .all();
       }
     } else {
-      const whereClause =
-        conditions.length > 0 ? and(...conditions) : undefined;
-
       countResult = db
         .select({ count: sql<number>`count(*)` })
         .from(movies)
@@ -245,33 +282,6 @@ export async function GET(request: NextRequest) {
         scaryScore: null,
         specificWords: null,
       }));
-    }
-
-    // If streaming service filter is set, filter movies that have those providers
-    if (streamingServiceIds && streamingServiceIds.length > 0) {
-      const movieIds = movieResults.map((m) => m.id);
-      if (movieIds.length > 0) {
-        const providerLinks = db
-          .select({
-            movieId: movieProviders.movieId,
-          })
-          .from(movieProviders)
-          .where(
-            and(
-              inArray(movieProviders.movieId, movieIds),
-              inArray(movieProviders.providerId, streamingServiceIds),
-              eq(movieProviders.type, "flatrate")
-            )
-          )
-          .all();
-
-        const movieIdsWithProvider = new Set(
-          providerLinks.map((p) => p.movieId)
-        );
-        movieResults = movieResults.filter((m) =>
-          movieIdsWithProvider.has(m.id)
-        );
-      }
     }
 
     // Format response

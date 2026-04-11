@@ -11,20 +11,89 @@ import { ContentBadge } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { getImageUrl, getYear, formatRuntime } from "@/lib/utils";
+import type { StreamingProviderInfo } from "@/types";
+import { db } from "@/lib/db";
+import {
+  movies,
+  contentRatings,
+  contentRatingsAggregated,
+  movieProviders,
+  streamingProviders,
+} from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-async function getMovie(slug: string) {
-  // In production this calls the DB directly via server component
-  // For now, use internal API
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  try {
-    const res = await fetch(`${baseUrl}/api/movies/${slug}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
+function getMovie(slug: string) {
+  const movie = db
+    .select()
+    .from(movies)
+    .where(eq(movies.slug, slug))
+    .get();
+
+  if (!movie) return null;
+
+  const aggregated = db
+    .select()
+    .from(contentRatingsAggregated)
+    .where(eq(contentRatingsAggregated.movieId, movie.id))
+    .get();
+
+  const sources = db
+    .select()
+    .from(contentRatings)
+    .where(eq(contentRatings.movieId, movie.id))
+    .all();
+
+  const providers = db
+    .select({
+      id: streamingProviders.id,
+      name: streamingProviders.name,
+      logoPath: streamingProviders.logoPath,
+      type: movieProviders.type,
+      link: movieProviders.link,
+    })
+    .from(movieProviders)
+    .innerJoin(
+      streamingProviders,
+      eq(movieProviders.providerId, streamingProviders.id)
+    )
+    .where(eq(movieProviders.movieId, movie.id))
+    .all();
+
+  return {
+    ...movie,
+    genres: movie.genres ? JSON.parse(movie.genres) : [],
+    contentRating: aggregated
+      ? {
+          languageScore: aggregated.languageScore,
+          violenceScore: aggregated.violenceScore,
+          sexualContentScore: aggregated.sexualContentScore,
+          scaryScore: aggregated.scaryScore,
+          languageNotes: aggregated.languageNotes,
+          violenceNotes: aggregated.violenceNotes,
+          sexualNotes: aggregated.sexualNotes,
+          scaryNotes: aggregated.scaryNotes,
+          specificWords: aggregated.specificWords
+            ? JSON.parse(aggregated.specificWords)
+            : [],
+        }
+      : null,
+    contentSources: sources.map((s) => ({
+      source: s.source,
+      languageScore: s.languageScore,
+      violenceScore: s.violenceScore,
+      sexualContentScore: s.sexualContentScore,
+      scaryScore: s.scaryScore,
+      languageNotes: s.languageNotes,
+      violenceNotes: s.violenceNotes,
+      sexualNotes: s.sexualNotes,
+      scaryNotes: s.scaryNotes,
+      profanityWords: s.profanityWords ? JSON.parse(s.profanityWords) : {},
+      recommendedAge: s.recommendedAge,
+      sourceUrl: s.sourceUrl,
+    })),
+    streamingProviders: providers as StreamingProviderInfo[],
+    userStatus: null,
+  };
 }
 
 export default async function MovieDetailPage({
@@ -33,7 +102,7 @@ export default async function MovieDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const movie = await getMovie(slug);
+  const movie = getMovie(slug);
 
   if (!movie) {
     return (
@@ -118,15 +187,14 @@ export default async function MovieDetailPage({
                   {movie.mpaaRating}
                 </span>
               )}
-              {movie.genres &&
-                JSON.parse(movie.genres || "[]").map((g: string) => (
-                  <span
-                    key={g}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs"
-                  >
-                    {g}
-                  </span>
-                ))}
+              {(movie.genres as string[]).map((g: string) => (
+                <span
+                  key={g}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs"
+                >
+                  {g}
+                </span>
+              ))}
             </div>
 
             {/* Ratings */}
@@ -173,7 +241,7 @@ export default async function MovieDetailPage({
             {/* Watchlist Button */}
             <WatchlistButton
               movieId={movie.id}
-              currentStatus={movie.userStatus?.status || null}
+              currentStatus={null}
             />
           </div>
         </div>
@@ -185,22 +253,22 @@ export default async function MovieDetailPage({
           {hasRating ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <ContentBadge
-                score={contentRating.languageScore}
+                score={contentRating.languageScore ?? 0}
                 label="Language"
                 size="md"
               />
               <ContentBadge
-                score={contentRating.violenceScore}
+                score={contentRating.violenceScore ?? 0}
                 label="Violence"
                 size="md"
               />
               <ContentBadge
-                score={contentRating.sexualContentScore}
+                score={contentRating.sexualContentScore ?? 0}
                 label="Sexual Content"
                 size="md"
               />
               <ContentBadge
-                score={contentRating.scaryScore}
+                score={contentRating.scaryScore ?? 0}
                 label="Scary/Intense"
                 size="md"
               />
