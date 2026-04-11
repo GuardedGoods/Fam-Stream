@@ -6,7 +6,7 @@ import {
   movieProviders,
   streamingProviders,
 } from "@/lib/db/schema";
-import { eq, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import {
   discoverMovies,
   getMovieDetails,
@@ -211,6 +211,11 @@ async function syncMovies() {
 
   console.log(`Phase 1 complete. ${totalInserted} movies added.`);
 
+  // Phase 1.5: Bulk-populate MPAA ratings via TMDB discover certification filter.
+  // This is much faster than individual API calls (Phase 2) because one discover
+  // page tags 20 movies at once.
+  await populateMpaaRatings();
+
   if (totalInserted === 0) {
     // If movies already exist this just means nothing new was found — that's fine.
     const existingCount = db.select({ count: sql<number>`count(*)` }).from(movies).get()?.count || 0;
@@ -301,6 +306,55 @@ async function syncMovies() {
   } catch (e) {
     console.error("Content rating scraping failed:", e);
   }
+}
+
+/**
+ * Bulk-populate MPAA ratings by running TMDB discover queries filtered
+ * by exact certification (G, PG, PG-13, R). One discover page tags 20
+ * movies at once — far faster than the per-movie Phase 2 approach.
+ */
+async function populateMpaaRatings() {
+  const unratedCount = db.select({ count: sql<number>`count(*)` })
+    .from(movies)
+    .where(isNull(movies.mpaaRating))
+    .get()?.count || 0;
+
+  if (unratedCount < 100) {
+    console.log(`Only ${unratedCount} movies without MPAA ratings, skipping bulk fetch.`);
+    return;
+  }
+
+  console.log(`Populating MPAA ratings for ${unratedCount} unrated movies...`);
+
+  const RATINGS = ['G', 'PG', 'PG-13', 'R', 'NC-17'];
+  let totalUpdated = 0;
+
+  for (const rating of RATINGS) {
+    let ratingUpdated = 0;
+
+    for (let page = 1; page <= 500; page++) {
+      try {
+        const result = await discoverMovies(page, { certification: rating });
+        if (!result?.results || result.results.length === 0) break;
+
+        for (const tmdbMovie of result.results) {
+          const updated = db.update(movies)
+            .set({ mpaaRating: rating })
+            .where(and(eq(movies.tmdbId, tmdbMovie.id), isNull(movies.mpaaRating)))
+            .run();
+
+          if (updated.changes > 0) ratingUpdated++;
+        }
+      } catch (e) {
+        console.error(`Error fetching ${rating} movies page ${page}:`, e);
+      }
+    }
+
+    totalUpdated += ratingUpdated;
+    console.log(`${rating}: tagged ${ratingUpdated} movies`);
+  }
+
+  console.log(`MPAA rating population complete. ${totalUpdated} movies tagged.`);
 }
 
 // Only store data for these 7 streaming services

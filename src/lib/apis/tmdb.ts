@@ -214,6 +214,7 @@ export async function discoverMovies(
   options?: {
     genres?: number[];
     maxRating?: string;
+    certification?: string;
     watchProviders?: number[];
     watchRegion?: string;
   },
@@ -230,7 +231,10 @@ export async function discoverMovies(
     params.with_genres = options.genres.join(',');
   }
 
-  if (options?.maxRating) {
+  if (options?.certification) {
+    params.certification_country = 'US';
+    params.certification = options.certification;
+  } else if (options?.maxRating) {
     params.certification_country = 'US';
     params['certification.lte'] = options.maxRating;
   }
