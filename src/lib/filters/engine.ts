@@ -96,7 +96,7 @@ export function evaluateMovie(
   }
 
   // 3. Check specific words against blocked words
-  if (blockedWords.length > 0 && movie.contentRating.specificWords.length > 0) {
+  if (blockedWords.length > 0 && movie.contentRating.specificWords?.length > 0) {
     const normalizedBlocked = blockedWords.map((w) => w.toLowerCase());
     const matchedWords: string[] = [];
 

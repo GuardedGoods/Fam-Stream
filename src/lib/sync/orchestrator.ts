@@ -117,7 +117,14 @@ async function syncMovies() {
     }
   }
 
-  console.log(`Phase 1 complete. ${totalInserted} movies added. Starting enrichment...`);
+  console.log(`Phase 1 complete. ${totalInserted} movies added.`);
+
+  if (totalInserted === 0) {
+    console.error("Phase 1 inserted 0 movies. Check TMDB API key and database connectivity.");
+    return;
+  }
+
+  console.log("Starting Phase 2 enrichment...");
 
   // Phase 2: Enrich movies with details, ratings, and providers
   // This runs in background - movies are already visible

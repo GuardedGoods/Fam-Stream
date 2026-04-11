@@ -83,7 +83,7 @@ export function MovieCard({
         )}
 
         {/* Streaming providers */}
-        {streamingProviders.length > 0 && (
+        {streamingProviders?.length > 0 && (
           <div onClick={(e) => e.preventDefault()}>
             <StreamingBadges providers={streamingProviders} size="sm" />
           </div>

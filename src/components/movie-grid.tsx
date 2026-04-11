@@ -88,7 +88,7 @@ export function MovieGrid({ movies, loading = false }: MovieGridProps) {
           releaseDate={movie.releaseDate}
           mpaaRating={movie.mpaaRating}
           contentRating={movie.contentRating}
-          streamingProviders={movie.streamingProviders}
+          streamingProviders={movie.streamingProviders || []}
         />
       ))}
     </div>

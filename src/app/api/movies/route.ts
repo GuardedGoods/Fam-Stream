@@ -286,6 +286,7 @@ export async function GET(request: NextRequest) {
                 : [],
             }
           : null,
+      streamingProviders: [],
     }));
 
     return NextResponse.json({
