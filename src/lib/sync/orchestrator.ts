@@ -82,7 +82,7 @@ async function syncMovies() {
   // Phase 1: Fetch movies from each streaming service
   // TMDB discover with watch_providers filter gets movies available on each service
   for (const provider of STREAMING_PROVIDERS) {
-    const pagesPerProvider = 50; // up to 1000 movies per service
+    const pagesPerProvider = 500; // up to 10,000 movies per service (TMDB max)
     console.log(`Fetching movies from ${provider.name}...`);
 
     for (let page = 1; page <= pagesPerProvider; page++) {
@@ -136,7 +136,7 @@ async function syncMovies() {
 
   // Also fetch general popular/top-rated movies not tied to a specific service
   console.log("Fetching general popular movies...");
-  for (let page = 1; page <= 50; page++) {
+  for (let page = 1; page <= 500; page++) {
     try {
       const result = await discoverMovies(page);
       if (!result?.results || result.results.length === 0) break;
