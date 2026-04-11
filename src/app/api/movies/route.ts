@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     .map(Number);
   const minYear = searchParams.get("minYear");
   const maxYear = searchParams.get("maxYear");
+  const blockedWords = searchParams.get("blockedWords")?.split(",").filter(Boolean);
   const hideUnrated = searchParams.get("hideUnrated") === "true";
   const sort = searchParams.get("sort") || "popularity";
   const sortDirection = searchParams.get("sortDirection") || "desc";
@@ -64,6 +65,10 @@ export async function GET(request: NextRequest) {
   try {
     // Build conditions array — all filters go here so both count and results queries stay in sync
     const conditions = [];
+
+    // Always exclude future/unreleased movies
+    const today = new Date().toISOString().slice(0, 10);
+    conditions.push(lte(movies.releaseDate, today));
 
     if (search) {
       conditions.push(like(movies.title, `%${search}%`));
@@ -140,6 +145,16 @@ export async function GET(request: NextRequest) {
         conditions.push(lte(contentRatingsAggregated.scaryScore, maxVal));
         needsContentJoin = true;
       }
+    }
+
+    // Blocked words filter — exclude movies whose specificWords JSON contains any blocked word
+    if (blockedWords && blockedWords.length > 0) {
+      for (const word of blockedWords) {
+        conditions.push(
+          sql`(${contentRatingsAggregated.specificWords} IS NULL OR ${contentRatingsAggregated.specificWords} NOT LIKE ${'%"' + word + '"%'})`
+        );
+      }
+      needsContentJoin = true;
     }
 
     // Determine sort column

@@ -225,6 +225,8 @@ export async function discoverMovies(
     include_adult: 'false',
     include_video: 'false',
     language: 'en-US',
+    // Only include movies released up to today (exclude future/unreleased)
+    'release_date.lte': new Date().toISOString().slice(0, 10),
   };
 
   if (options?.genres && options.genres.length > 0) {

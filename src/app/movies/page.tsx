@@ -81,6 +81,9 @@ function parseFiltersFromURL(params: URLSearchParams): MovieFilters {
   const streamingServices = params.get("streamingServices");
   if (streamingServices) filters.streamingServices = streamingServices.split(",").map(Number);
 
+  const blockedWords = params.get("blockedWords");
+  if (blockedWords) filters.blockedWords = blockedWords.split(",");
+
   if (params.get("hideWatched") === "true") filters.hideWatched = true;
   if (params.get("hideUnrated") === "true") filters.hideUnrated = true;
 
@@ -110,6 +113,7 @@ function filtersToURLParams(filters: MovieFilters): URLSearchParams {
   if (filters.maxSexualContentScore !== undefined) params.set("maxSexualContentScore", String(filters.maxSexualContentScore));
   if (filters.maxScaryScore !== undefined) params.set("maxScaryScore", String(filters.maxScaryScore));
   if (filters.streamingServices?.length) params.set("streamingServices", filters.streamingServices.join(","));
+  if (filters.blockedWords?.length) params.set("blockedWords", filters.blockedWords.join(","));
   if (filters.hideWatched) params.set("hideWatched", "true");
   if (filters.hideUnrated) params.set("hideUnrated", "true");
   if (filters.sort && filters.sort !== "popularity") params.set("sort", filters.sort);
@@ -134,6 +138,7 @@ function countActiveFilters(filters: MovieFilters): number {
   if (filters.maxSexualContentScore !== undefined && filters.maxSexualContentScore < 5) count++;
   if (filters.maxScaryScore !== undefined && filters.maxScaryScore < 5) count++;
   if (filters.streamingServices?.length) count += filters.streamingServices.length;
+  if (filters.blockedWords?.length) count += filters.blockedWords.length;
   if (filters.hideWatched) count++;
   if (filters.hideUnrated) count++;
   if (filters.minYear !== undefined) count++;
@@ -251,6 +256,19 @@ function getActiveFilterChips(
     });
   }
 
+  // Blocked words
+  if (filters.blockedWords?.length) {
+    for (const word of filters.blockedWords) {
+      chips.push({
+        label: `Block: ${word}`,
+        onRemove: () =>
+          onFilterChange({
+            blockedWords: filters.blockedWords?.filter((w) => w !== word),
+          }),
+      });
+    }
+  }
+
   // Boolean toggles
   if (filters.hideWatched) {
     chips.push({
@@ -279,6 +297,7 @@ function MoviesPageInner() {
 
   const [movies, setMovies] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [providers, setProviders] = useState<
     { id: number; name: string; logoPath: string | null }[]
@@ -310,8 +329,12 @@ function MoviesPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const fetchMovies = useCallback(async () => {
-    setLoading(true);
+  const fetchMovies = useCallback(async (append = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const params = new URLSearchParams();
       if (filters.search) params.set("search", filters.search);
@@ -332,6 +355,8 @@ function MoviesPageInner() {
         params.set("maxScaryScore", String(filters.maxScaryScore));
       if (filters.streamingServices?.length)
         params.set("streamingServices", filters.streamingServices.join(","));
+      if (filters.blockedWords?.length)
+        params.set("blockedWords", filters.blockedWords.join(","));
       if (filters.hideWatched) params.set("hideWatched", "true");
       if (filters.hideUnrated) params.set("hideUnrated", "true");
       if (filters.sort) params.set("sort", filters.sort);
@@ -347,13 +372,18 @@ function MoviesPageInner() {
       const res = await fetch(`/api/movies?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setMovies(data.data || []);
+        if (append) {
+          setMovies((prev) => [...prev, ...(data.data || [])]);
+        } else {
+          setMovies(data.data || []);
+        }
         setTotal(data.total || 0);
       }
     } catch (err) {
       console.error("Failed to fetch movies:", err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [filters]);
 
@@ -415,6 +445,7 @@ function MoviesPageInner() {
   }, []);
 
   const handleFilterChange = (newFilters: Partial<MovieFilters>) => {
+    setMovies([]); // Reset movies when filters change
     setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
   };
 
@@ -432,10 +463,12 @@ function MoviesPageInner() {
   };
 
   const handleLoadMore = () => {
-    setFilters((prev) => ({ ...prev, page: (prev.page || 1) + 1 }));
+    const nextPage = (filters.page || 1) + 1;
+    setFilters((prev) => ({ ...prev, page: nextPage }));
+    fetchMovies(true);
   };
 
-  const totalPages = Math.ceil(total / (filters.limit || 24));
+  const hasMore = movies.length < total;
   const activeFilterCount = countActiveFilters(filters);
   const filterChips = getActiveFilterChips(filters, providers, handleFilterChange);
 
@@ -565,31 +598,36 @@ function MoviesPageInner() {
         <div className="flex-1 min-w-0">
           <MovieGrid movies={movies} loading={loading} />
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-8">
-              <button
-                onClick={() =>
-                  setFilters((p) => ({
-                    ...p,
-                    page: Math.max(1, (p.page || 1) - 1),
-                  }))
-                }
-                disabled={filters.page === 1}
-                className="px-4 py-2 rounded-lg border border-border text-sm font-medium disabled:opacity-50 hover:bg-accent transition-colors"
-              >
-                Previous
-              </button>
-              <span className="px-4 py-2 text-sm text-muted-foreground">
-                Page {filters.page || 1} of {totalPages}
-              </span>
-              <button
-                onClick={handleLoadMore}
-                disabled={(filters.page || 1) >= totalPages}
-                className="px-4 py-2 rounded-lg border border-border text-sm font-medium disabled:opacity-50 hover:bg-accent transition-colors"
-              >
-                Next
-              </button>
+          {/* Skeleton loading cards while loading more */}
+          {loadingMore && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-lg overflow-hidden bg-muted border border-border">
+                  <div className="aspect-[2/3] bg-muted-foreground/10" />
+                  <div className="p-2 space-y-2">
+                    <div className="h-4 bg-muted-foreground/10 rounded w-3/4" />
+                    <div className="h-3 bg-muted-foreground/10 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Load More + progress */}
+          {total > 0 && (
+            <div className="flex flex-col items-center gap-3 mt-8">
+              <p className="text-sm text-muted-foreground">
+                Showing {movies.length} of {total} movies
+              </p>
+              {hasMore && (
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="px-6 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading..." : "Load More"}
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -80,9 +80,16 @@ function getMovie(slug: string) {
   // Find recommended age from any source
   const recommendedAge = sources.find((s) => s.recommendedAge)?.recommendedAge ?? null;
 
+  let parsedGenres: string[] = [];
+  try {
+    parsedGenres = movie.genres ? JSON.parse(movie.genres) : [];
+  } catch {
+    parsedGenres = [];
+  }
+
   return {
     ...movie,
-    genres: movie.genres ? JSON.parse(movie.genres) : [],
+    genres: parsedGenres,
     contentRating: aggregated
       ? {
           languageScore: aggregated.languageScore,
@@ -108,7 +115,7 @@ function getMovie(slug: string) {
       violenceNotes: s.violenceNotes,
       sexualNotes: s.sexualNotes,
       scaryNotes: s.scaryNotes,
-      profanityWords: s.profanityWords ? JSON.parse(s.profanityWords) : {},
+      profanityWords: (() => { try { return s.profanityWords ? JSON.parse(s.profanityWords) : {}; } catch { return {}; } })(),
       recommendedAge: s.recommendedAge,
       sourceUrl: s.sourceUrl,
     })),

@@ -202,6 +202,42 @@ function FilterContent({
 
       <Separator />
 
+      {/* Blocked Words */}
+      <div>
+        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+          Block Specific Words
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          {["f-word", "s-word", "damn", "hell", "ass", "bitch", "bastard", "crap", "goddamn"].map((word) => {
+            const checked = currentFilters.blockedWords?.includes(word) ?? false;
+            return (
+              <button
+                key={word}
+                type="button"
+                onClick={() =>
+                  updateFilter({
+                    blockedWords: toggleArrayItem(currentFilters.blockedWords, word),
+                  })
+                }
+                className={cn(
+                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                  checked
+                    ? "bg-red-600 text-white border-red-600 dark:bg-red-500 dark:border-red-500"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800"
+                )}
+              >
+                {word}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5">
+          Movies containing selected words will be hidden
+        </p>
+      </div>
+
+      <Separator />
+
       {/* Streaming Services */}
       {streamingProviders.length > 0 && (
         <>
