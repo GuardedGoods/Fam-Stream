@@ -182,7 +182,13 @@ async function syncMovies() {
   console.log(`Phase 1 complete. ${totalInserted} movies added.`);
 
   if (totalInserted === 0) {
-    console.error("Phase 1 inserted 0 movies. Check TMDB API key and database connectivity.");
+    // If movies already exist this just means nothing new was found — that's fine.
+    const existingCount = db.select({ count: sql<number>`count(*)` }).from(movies).get()?.count || 0;
+    if (existingCount === 0) {
+      console.error("Phase 1 inserted 0 movies and DB is empty. Check TMDB API key and database connectivity.");
+      return;
+    }
+    console.log(`Phase 1: No new movies found (${existingCount} already in DB). Skipping Phase 2.`);
     return;
   }
 

@@ -29,7 +29,10 @@ export async function GET() {
 
     const movieCount = result?.count || 0;
 
-    if (movieCount > 0) {
+    // Only skip sync if we already have a substantial library (10K+).
+    // A small count (e.g. 200) means an earlier partial sync ran — let it
+    // re-run to fill in the rest.
+    if (movieCount >= 10000) {
       return NextResponse.json({ status: "has_data", count: movieCount });
     }
 
