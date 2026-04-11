@@ -68,7 +68,7 @@ async function syncMovies() {
 
   // Phase 1: Quick insert - get basic movie data from discover endpoint
   // This is fast (1 API call per 20 movies) so movies appear quickly
-  const pagesToFetch = 10; // 200 movies for quick initial load
+  const pagesToFetch = 50; // 1000 movies
   let totalInserted = 0;
 
   for (let page = 1; page <= pagesToFetch; page++) {
