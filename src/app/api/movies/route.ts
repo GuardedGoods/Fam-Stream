@@ -16,8 +16,6 @@ import {
   sql,
   and,
   exists,
-  isNull,
-  or,
 } from "drizzle-orm";
 
 // The 7 streaming services we support
@@ -98,40 +96,39 @@ export async function GET(request: NextRequest) {
     }
 
     // Content score filters — reference contentRatingsAggregated columns (joined below).
-    // When hideUnrated=false (LEFT JOIN), unrated movies have NULL scores. NULL <= N is false
-    // in SQL, which would exclude all unrated movies. Wrap with OR IS NULL so they pass through.
-    // When hideUnrated=true (INNER JOIN), scores are non-null so simple lte is fine.
+    // When a slider is at 5 (max), no condition is needed — everything passes.
+    // When a slider is below 5, we MUST exclude unrated movies because we can't
+    // verify they meet the safety criteria. A strict lte() on a LEFT JOIN naturally
+    // excludes NULLs (SQL NULL <= N is false), which is the correct family-safe behavior.
+    let needsContentJoin = false;
+
     if (maxLanguageScore) {
       const maxVal = parseInt(maxLanguageScore);
-      conditions.push(
-        hideUnrated
-          ? lte(contentRatingsAggregated.languageScore, maxVal)
-          : or(isNull(contentRatingsAggregated.languageScore), lte(contentRatingsAggregated.languageScore, maxVal))
-      );
+      if (maxVal < 5) {
+        conditions.push(lte(contentRatingsAggregated.languageScore, maxVal));
+        needsContentJoin = true;
+      }
     }
     if (maxViolenceScore) {
       const maxVal = parseInt(maxViolenceScore);
-      conditions.push(
-        hideUnrated
-          ? lte(contentRatingsAggregated.violenceScore, maxVal)
-          : or(isNull(contentRatingsAggregated.violenceScore), lte(contentRatingsAggregated.violenceScore, maxVal))
-      );
+      if (maxVal < 5) {
+        conditions.push(lte(contentRatingsAggregated.violenceScore, maxVal));
+        needsContentJoin = true;
+      }
     }
     if (maxSexualContentScore) {
       const maxVal = parseInt(maxSexualContentScore);
-      conditions.push(
-        hideUnrated
-          ? lte(contentRatingsAggregated.sexualContentScore, maxVal)
-          : or(isNull(contentRatingsAggregated.sexualContentScore), lte(contentRatingsAggregated.sexualContentScore, maxVal))
-      );
+      if (maxVal < 5) {
+        conditions.push(lte(contentRatingsAggregated.sexualContentScore, maxVal));
+        needsContentJoin = true;
+      }
     }
     if (maxScaryScore) {
       const maxVal = parseInt(maxScaryScore);
-      conditions.push(
-        hideUnrated
-          ? lte(contentRatingsAggregated.scaryScore, maxVal)
-          : or(isNull(contentRatingsAggregated.scaryScore), lte(contentRatingsAggregated.scaryScore, maxVal))
-      );
+      if (maxVal < 5) {
+        conditions.push(lte(contentRatingsAggregated.scaryScore, maxVal));
+        needsContentJoin = true;
+      }
     }
 
     // Determine sort column
@@ -154,12 +151,7 @@ export async function GET(request: NextRequest) {
         orderBy = dir(movies.popularity);
     }
 
-    const hasContentFilters =
-      maxLanguageScore ||
-      maxViolenceScore ||
-      maxSexualContentScore ||
-      maxScaryScore ||
-      hideUnrated;
+    const hasContentFilters = needsContentJoin || hideUnrated;
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

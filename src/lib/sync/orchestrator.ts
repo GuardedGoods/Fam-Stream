@@ -25,6 +25,33 @@ import {
   aggregateScores,
 } from "@/lib/scrapers/normalize";
 
+// TMDB genre ID → name mapping (from /genre/movie/list)
+const TMDB_GENRE_MAP: Record<number, string> = {
+  28: "Action",
+  12: "Adventure",
+  16: "Animation",
+  35: "Comedy",
+  80: "Crime",
+  99: "Documentary",
+  18: "Drama",
+  10751: "Family",
+  14: "Fantasy",
+  36: "History",
+  27: "Horror",
+  10402: "Music",
+  9648: "Mystery",
+  10749: "Romance",
+  878: "Science Fiction",
+  10770: "TV Movie",
+  53: "Thriller",
+  10752: "War",
+  37: "Western",
+};
+
+function genreIdsToNames(ids: number[]): string[] {
+  return ids.map((id) => TMDB_GENRE_MAP[id]).filter(Boolean);
+}
+
 let isSyncing = false;
 
 export async function runSync(type: string) {
@@ -106,6 +133,8 @@ async function syncMovies() {
             const year = tmdbMovie.release_date?.substring(0, 4) || "";
             const slug = generateSlug(tmdbMovie.title, year);
 
+            const genreNames = genreIdsToNames(tmdbMovie.genre_ids || []);
+
             db.insert(movies)
               .values({
                 tmdbId: tmdbMovie.id,
@@ -116,7 +145,7 @@ async function syncMovies() {
                 posterPath: tmdbMovie.poster_path || null,
                 backdropPath: tmdbMovie.backdrop_path || null,
                 popularity: tmdbMovie.popularity || null,
-                genres: JSON.stringify([]),
+                genres: JSON.stringify(genreNames),
                 lastSyncedAt: new Date().toISOString(),
               })
               .run();
@@ -153,6 +182,7 @@ async function syncMovies() {
 
           const year = tmdbMovie.release_date?.substring(0, 4) || "";
           const slug = generateSlug(tmdbMovie.title, year);
+          const genreNames = genreIdsToNames(tmdbMovie.genre_ids || []);
 
           db.insert(movies)
             .values({
@@ -164,7 +194,7 @@ async function syncMovies() {
               posterPath: tmdbMovie.poster_path || null,
               backdropPath: tmdbMovie.backdrop_path || null,
               popularity: tmdbMovie.popularity || null,
-              genres: JSON.stringify([]),
+              genres: JSON.stringify(genreNames),
               lastSyncedAt: new Date().toISOString(),
             })
             .run();
@@ -263,6 +293,14 @@ async function syncMovies() {
   }
 
   console.log(`Movie sync complete. ${totalInserted} inserted, ${enriched} enriched.`);
+
+  // Phase 3: Scrape content ratings (language, violence, etc.) from external sites
+  console.log("Starting Phase 3: content rating scraping...");
+  try {
+    await syncContentRatings();
+  } catch (e) {
+    console.error("Content rating scraping failed:", e);
+  }
 }
 
 // Only store data for these 7 streaming services
@@ -360,7 +398,7 @@ async function syncContentRatings() {
       eq(movies.id, contentRatingsAggregated.movieId)
     )
     .where(isNull(contentRatingsAggregated.id))
-    .limit(50) // Process 50 at a time
+    .limit(200) // Process 200 at a time
     .all();
 
   console.log(
