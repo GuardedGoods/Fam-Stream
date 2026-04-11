@@ -211,7 +211,12 @@ async function tmdbFetch<T>(
  */
 export async function discoverMovies(
   page: number = 1,
-  options?: { genres?: number[]; maxRating?: string },
+  options?: {
+    genres?: number[];
+    maxRating?: string;
+    watchProviders?: number[];
+    watchRegion?: string;
+  },
 ): Promise<TmdbPaginatedResponse<TmdbMovie>> {
   const params: Record<string, string> = {
     page: String(page),
@@ -228,6 +233,11 @@ export async function discoverMovies(
   if (options?.maxRating) {
     params.certification_country = 'US';
     params['certification.lte'] = options.maxRating;
+  }
+
+  if (options?.watchProviders && options.watchProviders.length > 0) {
+    params.with_watch_providers = options.watchProviders.join('|');
+    params.watch_region = options.watchRegion || 'US';
   }
 
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>(

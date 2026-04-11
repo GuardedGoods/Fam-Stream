@@ -66,15 +66,81 @@ export async function runSync(type: string) {
 async function syncMovies() {
   console.log("Syncing movies from TMDB...");
 
-  // Phase 1: Quick insert - get basic movie data from discover endpoint
-  // This is fast (1 API call per 20 movies) so movies appear quickly
-  const pagesToFetch = 50; // 1000 movies
+  // TMDB watch provider IDs for major streaming services
+  const STREAMING_PROVIDERS = [
+    { id: 8, name: "Netflix" },
+    { id: 9, name: "Amazon Prime Video" },
+    { id: 337, name: "Disney Plus" },
+    { id: 350, name: "Apple TV Plus" },
+    { id: 384, name: "HBO Max" },
+    { id: 386, name: "Peacock" },
+    { id: 531, name: "Paramount Plus" },
+    { id: 15, name: "Hulu" },
+  ];
+
   let totalInserted = 0;
 
-  for (let page = 1; page <= pagesToFetch; page++) {
+  // Phase 1: Fetch movies from each streaming service
+  // TMDB discover with watch_providers filter gets movies available on each service
+  for (const provider of STREAMING_PROVIDERS) {
+    const pagesPerProvider = 25; // 500 movies per service (many overlap)
+    console.log(`Fetching movies from ${provider.name}...`);
+
+    for (let page = 1; page <= pagesPerProvider; page++) {
+      try {
+        const result = await discoverMovies(page, {
+          watchProviders: [provider.id],
+          watchRegion: "US",
+        });
+        if (!result?.results || result.results.length === 0) break;
+
+        for (const tmdbMovie of result.results) {
+          try {
+            const existing = db
+              .select({ id: movies.id })
+              .from(movies)
+              .where(eq(movies.tmdbId, tmdbMovie.id))
+              .get();
+
+            if (existing) continue;
+
+            const year = tmdbMovie.release_date?.substring(0, 4) || "";
+            const slug = generateSlug(tmdbMovie.title, year);
+
+            db.insert(movies)
+              .values({
+                tmdbId: tmdbMovie.id,
+                title: tmdbMovie.title,
+                slug,
+                overview: tmdbMovie.overview || null,
+                releaseDate: tmdbMovie.release_date || null,
+                posterPath: tmdbMovie.poster_path || null,
+                backdropPath: tmdbMovie.backdrop_path || null,
+                popularity: tmdbMovie.popularity || null,
+                genres: JSON.stringify([]),
+                lastSyncedAt: new Date().toISOString(),
+              })
+              .run();
+
+            totalInserted++;
+          } catch (e) {
+            console.error(`Error inserting movie ${tmdbMovie.title}:`, e);
+          }
+        }
+      } catch (e) {
+        console.error(`Error fetching ${provider.name} page ${page}:`, e);
+      }
+    }
+
+    console.log(`${provider.name} done. Total inserted so far: ${totalInserted}`);
+  }
+
+  // Also fetch general popular/top-rated movies not tied to a specific service
+  console.log("Fetching general popular movies...");
+  for (let page = 1; page <= 25; page++) {
     try {
       const result = await discoverMovies(page);
-      if (!result?.results) continue;
+      if (!result?.results || result.results.length === 0) break;
 
       for (const tmdbMovie of result.results) {
         try {
@@ -89,7 +155,6 @@ async function syncMovies() {
           const year = tmdbMovie.release_date?.substring(0, 4) || "";
           const slug = generateSlug(tmdbMovie.title, year);
 
-          // Insert with basic data from discover (no extra API calls)
           db.insert(movies)
             .values({
               tmdbId: tmdbMovie.id,
@@ -107,13 +172,11 @@ async function syncMovies() {
 
           totalInserted++;
         } catch (e) {
-          console.error(`Error inserting movie ${tmdbMovie.title}:`, e);
+          // skip duplicates silently
         }
       }
-
-      console.log(`Phase 1: page ${page}/${pagesToFetch}, inserted: ${totalInserted}`);
     } catch (e) {
-      console.error(`Error fetching page ${page}:`, e);
+      console.error(`Error fetching popular page ${page}:`, e);
     }
   }
 
