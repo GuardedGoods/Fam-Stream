@@ -11,6 +11,11 @@ const protectedApiPrefixes = ["/api/user/", "/api/sync"];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Allow public endpoints
+  if (pathname === "/api/sync/init") {
+    return NextResponse.next();
+  }
+
   // Check if route needs protection
   const isProtectedPage = protectedPagePrefixes.some((prefix) =>
     pathname.startsWith(prefix)
