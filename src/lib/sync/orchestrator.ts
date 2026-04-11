@@ -259,6 +259,9 @@ async function syncMovies() {
   console.log(`Movie sync complete. ${totalInserted} inserted, ${enriched} enriched.`);
 }
 
+// Only store data for these 7 streaming services
+const ALLOWED_PROVIDER_IDS = new Set([8, 9, 337, 350, 384, 386, 531]);
+
 async function syncMovieProviders(tmdbId: number) {
   const providers = await getWatchProviders(tmdbId);
   if (!providers) return;
@@ -279,6 +282,8 @@ async function syncMovieProviders(tmdbId: number) {
     if (!providerList) continue;
 
     for (const provider of providerList) {
+      // Skip providers not in our allowed list
+      if (!ALLOWED_PROVIDER_IDS.has(provider.provider_id)) continue;
       // Ensure provider exists in our table
       const existingProvider = db
         .select()

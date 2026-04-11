@@ -8,6 +8,9 @@ import {
 } from "@/lib/db/schema";
 import { eq, like, lte, inArray, desc, asc, sql, and } from "drizzle-orm";
 
+// The 7 streaming services we support
+const ALLOWED_PROVIDER_IDS = [8, 9, 337, 350, 384, 386, 531];
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
@@ -17,6 +20,7 @@ export async function GET(request: NextRequest) {
       const allProviders = db
         .select()
         .from(streamingProviders)
+        .where(inArray(streamingProviders.tmdbProviderId, ALLOWED_PROVIDER_IDS))
         .orderBy(asc(streamingProviders.displayPriority))
         .all();
       return NextResponse.json({ providers: allProviders });
