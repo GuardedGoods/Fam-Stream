@@ -16,6 +16,20 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower-movienight
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_LABEL_ENABLE=true
+    # Polls every 5 minutes. Only updates containers with the watchtower label.
 
 volumes:
   movienight-data:
@@ -45,7 +59,8 @@ volumes:
 # The image is automatically built and published to GitHub
 # Container Registry whenever code is pushed to the main branch.
 #
-# To update to the latest version:
-#   Container Manager → Project → fam-stream → Action → Build
-#   Or SSH: docker compose pull && docker compose up -d
+# Watchtower checks for new images every 5 minutes and automatically
+# pulls and restarts the container — no manual action needed.
+# To update manually instead:
+#   docker compose pull && docker compose up -d
 # ═══════════════════════════════════════════════════════════════════
