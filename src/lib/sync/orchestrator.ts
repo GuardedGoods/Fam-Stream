@@ -66,7 +66,7 @@ export async function runSync(type: string) {
 async function syncMovies() {
   console.log("Syncing movies from TMDB...");
 
-  // TMDB watch provider IDs for major streaming services
+  // TMDB watch provider IDs for the family's streaming services
   const STREAMING_PROVIDERS = [
     { id: 8, name: "Netflix" },
     { id: 9, name: "Amazon Prime Video" },
@@ -75,13 +75,6 @@ async function syncMovies() {
     { id: 384, name: "HBO Max" },
     { id: 386, name: "Peacock" },
     { id: 531, name: "Paramount Plus" },
-    { id: 15, name: "Hulu" },
-    { id: 1899, name: "Max" },
-    { id: 283, name: "Crunchyroll" },
-    { id: 387, name: "Peacock Premium" },
-    { id: 37, name: "Showtime" },
-    { id: 73, name: "Tubi" },
-    { id: 300, name: "Pluto TV" },
   ];
 
   let totalInserted = 0;
