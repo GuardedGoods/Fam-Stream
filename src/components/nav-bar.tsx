@@ -2,24 +2,44 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { Film, Search, Menu, User, LogOut, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search-bar";
 
 interface NavBarProps {
-  user?: {
-    name?: string | null;
-    image?: string | null;
-  } | null;
+  // Optional: let callers inject custom search behavior. If absent, the search
+  // bar navigates to the movies page with ?search=<query>.
   onSearch?: (query: string) => void;
-  onSignIn?: () => void;
-  onSignOut?: () => void;
 }
 
-export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
+export function NavBar({ onSearch }: NavBarProps = {}) {
+  const router = useRouter();
+  const { data: session } = useSession();
+  const user = session?.user ?? null;
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const handleSignIn = () => {
+    // Go through Auth.js's signIn() so NEXTAUTH_URL and CSRF are handled for us.
+    signIn("google", { callbackUrl: "/" });
+  };
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/" });
+  };
+
+  const handleSearch = (query: string) => {
+    if (onSearch) {
+      onSearch(query);
+      return;
+    }
+    const q = query.trim();
+    if (!q) return;
+    router.push(`/movies?search=${encodeURIComponent(q)}`);
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-gray-950/95 dark:supports-[backdrop-filter]:bg-gray-950/60">
@@ -51,10 +71,10 @@ export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
 
         {/* Desktop search + user area */}
         <div className="hidden md:flex items-center gap-2 ml-auto">
-          {searchOpen && onSearch ? (
+          {searchOpen ? (
             <div className="flex items-center gap-2">
               <SearchBar
-                onSearch={onSearch}
+                onSearch={handleSearch}
                 autoFocus
                 className="w-64"
               />
@@ -91,15 +111,13 @@ export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
                   <User className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                 </div>
               )}
-              {onSignOut && (
-                <Button variant="ghost" size="icon" onClick={onSignOut}>
-                  <LogOut className="h-4 w-4" />
-                  <span className="sr-only">Sign out</span>
-                </Button>
-              )}
+              <Button variant="ghost" size="icon" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4" />
+                <span className="sr-only">Sign out</span>
+              </Button>
             </div>
           ) : (
-            <Button variant="outline" size="sm" onClick={onSignIn}>
+            <Button variant="outline" size="sm" onClick={handleSignIn}>
               <User className="h-4 w-4 mr-1" />
               Sign In
             </Button>
@@ -108,16 +126,14 @@ export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
 
         {/* Mobile: search + hamburger */}
         <div className="flex items-center gap-1 ml-auto md:hidden">
-          {onSearch && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSearchOpen(!searchOpen)}
-            >
-              <Search className="h-4 w-4" />
-              <span className="sr-only">Search</span>
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSearchOpen(!searchOpen)}
+          >
+            <Search className="h-4 w-4" />
+            <span className="sr-only">Search</span>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -134,9 +150,9 @@ export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
       </div>
 
       {/* Mobile search bar */}
-      {searchOpen && onSearch && (
+      {searchOpen && (
         <div className="border-t border-gray-200 dark:border-gray-800 px-4 py-2 md:hidden">
-          <SearchBar onSearch={onSearch} autoFocus />
+          <SearchBar onSearch={handleSearch} autoFocus />
         </div>
       )}
 
@@ -180,19 +196,17 @@ export function NavBar({ user, onSearch, onSignIn, onSignOut }: NavBarProps) {
                     {user.name ?? "User"}
                   </span>
                 </div>
-                {onSignOut && (
-                  <Button variant="ghost" size="sm" onClick={onSignOut}>
-                    <LogOut className="h-4 w-4 mr-1" />
-                    Sign Out
-                  </Button>
-                )}
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Sign Out
+                </Button>
               </div>
             ) : (
               <Button
                 variant="outline"
                 size="sm"
                 className="mx-3"
-                onClick={onSignIn}
+                onClick={handleSignIn}
               >
                 <User className="h-4 w-4 mr-1" />
                 Sign In

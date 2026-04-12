@@ -8,7 +8,7 @@ const protectedPagePrefixes = ["/watchlist", "/settings", "/admin"];
 // API routes that require authentication (return 401)
 const protectedApiPrefixes = ["/api/user/", "/api/sync"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow public endpoints

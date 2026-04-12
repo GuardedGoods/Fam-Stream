@@ -86,7 +86,14 @@ npx drizzle-kit push
 
 # Run development server
 npm run dev
+
+# Run the test suite
+npm test
 ```
+
+On a fresh install the sync scheduler runs a cold-start bootstrap: if there
+are fewer than 10 movies in the DB, an immediate TMDB sync fires so the
+catalog populates without waiting for the nightly 3 AM cron.
 
 ## Tech Stack
 
