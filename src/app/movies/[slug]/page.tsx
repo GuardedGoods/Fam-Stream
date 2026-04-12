@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowLeft,
-  Star,
   Clock,
   Calendar,
   ExternalLink,
@@ -12,6 +11,7 @@ import { ContentBadge } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { getImageUrl, getYear, formatRuntime } from "@/lib/utils";
+import { maskProfanity } from "@/lib/filters/mask";
 import type { StreamingProviderInfo } from "@/types";
 import { db } from "@/lib/db";
 import {
@@ -144,16 +144,17 @@ export default async function MovieDetailPage({
 
   if (!movie) {
     return (
-      <div className="container mx-auto px-4 max-w-6xl py-12 text-center">
-        <h1 className="text-2xl font-bold mb-4">Movie Not Found</h1>
-        <p className="text-muted-foreground mb-6">
-          We couldn&apos;t find that movie. It may not be in our database yet.
+      <div className="container mx-auto px-4 max-w-3xl py-24 text-center">
+        <h1 className="font-serif text-4xl sm:text-5xl">Not found</h1>
+        <p className="text-muted-foreground mt-4 max-w-prose mx-auto">
+          We couldn&apos;t find that film. It may not be in our database yet —
+          check back once the content sync has caught up.
         </p>
         <Link
           href="/movies"
-          className="inline-flex items-center gap-2 text-primary hover:underline"
+          className="inline-flex items-center gap-2 mt-8 text-sm small-caps text-primary hover:underline"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3 w-3" />
           Back to Browse
         </Link>
       </div>
@@ -165,25 +166,28 @@ export default async function MovieDetailPage({
 
   return (
     <div className="min-h-screen">
-      {/* Backdrop */}
+      {/* Backdrop — fades into paper, not a harsh scrim. Serves as warm
+          context for the poster below, then gets out of the way. */}
       {movie.backdropPath && (
-        <div className="relative h-64 md:h-80 lg:h-96 w-full overflow-hidden">
+        <div className="relative h-72 md:h-96 lg:h-[28rem] w-full overflow-hidden">
           <Image
             src={getImageUrl(movie.backdropPath, "w1280")}
-            alt={movie.title}
+            alt=""
             fill
-            className="object-cover"
+            className="object-cover opacity-70"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/20" />
         </div>
       )}
 
-      <div className="container mx-auto px-4 max-w-6xl">
-        <div className={`flex flex-col md:flex-row gap-8 ${movie.backdropPath ? "-mt-32 relative z-10" : "pt-8"}`}>
-          {/* Poster */}
+      <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
+        <div
+          className={`flex flex-col md:flex-row gap-8 md:gap-12 ${movie.backdropPath ? "-mt-40 relative z-10" : "pt-10"}`}
+        >
+          {/* Poster — sharp, photographic, generous margin */}
           <div className="shrink-0 mx-auto md:mx-0">
-            <div className="relative w-48 md:w-64 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border border-border">
+            <div className="relative w-48 md:w-64 aspect-[2/3] overflow-hidden shadow-2xl ring-1 ring-border/80">
               <Image
                 src={getImageUrl(movie.posterPath, "w500")}
                 alt={movie.title}
@@ -194,39 +198,45 @@ export default async function MovieDetailPage({
             </div>
           </div>
 
-          {/* Info */}
-          <div className="flex-1 space-y-4">
+          {/* Masthead */}
+          <div className="flex-1 space-y-5 min-w-0">
             <Link
               href="/movies"
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1 small-caps text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-3 w-3" />
               Back to Browse
             </Link>
 
-            <h1 className="text-3xl md:text-4xl font-bold">{movie.title}</h1>
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl leading-[0.95] tracking-tight">
+              {movie.title}
+            </h1>
 
-            {/* Meta info */}
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            {/* Meta — small-caps rule with serif interpuncts for rhythm */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
               {movie.releaseDate && (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
-                  {getYear(movie.releaseDate)}
+                  <span className="tabular-nums">
+                    {getYear(movie.releaseDate)}
+                  </span>
                 </span>
               )}
               {movie.runtimeMinutes && (
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5" />
-                  {formatRuntime(movie.runtimeMinutes)}
+                  <span className="tabular-nums">
+                    {formatRuntime(movie.runtimeMinutes)}
+                  </span>
                 </span>
               )}
               {movie.mpaaRating && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded border border-border font-medium text-foreground">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-sm border border-border font-semibold text-foreground text-xs tracking-wide">
                   {movie.mpaaRating}
                 </span>
               )}
               {movie.recommendedAge && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 font-medium">
+                <span className="inline-flex items-center gap-1 small-caps text-foreground">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Ages {movie.recommendedAge}+
                 </span>
@@ -234,54 +244,51 @@ export default async function MovieDetailPage({
               {(movie.genres as string[]).map((g: string) => (
                 <span
                   key={g}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs"
+                  className="text-[12px] small-caps text-muted-foreground"
                 >
                   {g}
                 </span>
               ))}
             </div>
 
-            {/* Ratings */}
-            <div className="flex flex-wrap gap-4">
-              {movie.imdbRating && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                  <span className="font-bold">{movie.imdbRating}</span>
-                  <span className="text-xs text-muted-foreground">IMDb</span>
-                </div>
-              )}
-              {movie.rottenTomatoesScore !== null &&
-                movie.rottenTomatoesScore !== undefined && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <span className="font-bold">
-                      {movie.rottenTomatoesScore}%
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Rotten Tomatoes
-                    </span>
-                  </div>
-                )}
-              {movie.metacriticScore !== null &&
-                movie.metacriticScore !== undefined && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <span className="font-bold text-green-600">
-                      {movie.metacriticScore}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Metacritic
-                    </span>
-                  </div>
-                )}
-            </div>
+            {/* Ratings — editorial typographic stats, no colored pills */}
+            {(movie.imdbRating ||
+              movie.rottenTomatoesScore ||
+              movie.metacriticScore) && (
+              <div className="flex items-stretch gap-6 border-y border-border py-4">
+                {movie.imdbRating !== null &&
+                  movie.imdbRating !== undefined && (
+                    <Stat
+                      value={movie.imdbRating.toFixed(1)}
+                      label="IMDb"
+                      suffix=""
+                    />
+                  )}
+                {movie.rottenTomatoesScore !== null &&
+                  movie.rottenTomatoesScore !== undefined && (
+                    <Stat
+                      value={String(movie.rottenTomatoesScore)}
+                      label="Rotten Tomatoes"
+                      suffix="%"
+                    />
+                  )}
+                {movie.metacriticScore !== null &&
+                  movie.metacriticScore !== undefined && (
+                    <Stat
+                      value={String(movie.metacriticScore)}
+                      label="Metacritic"
+                      suffix=""
+                    />
+                  )}
+              </div>
+            )}
 
-            {/* Overview */}
             {movie.overview && (
-              <p className="text-muted-foreground leading-relaxed max-w-3xl">
+              <p className="font-serif text-[17px] leading-relaxed text-foreground/90 max-w-prose">
                 {movie.overview}
               </p>
             )}
 
-            {/* Watchlist Button */}
             <WatchlistButton
               movieId={movie.id}
               currentStatus={currentStatus}
@@ -289,12 +296,14 @@ export default async function MovieDetailPage({
           </div>
         </div>
 
-        {/* Content Advisory Section */}
-        <section className="mt-12 space-y-6">
-          <h2 className="text-2xl font-bold">Content Advisory</h2>
+        {/* Content Advisory */}
+        <section className="mt-16 space-y-6">
+          <h2 className="small-caps text-[12px] text-muted-foreground">
+            Content Advisory
+          </h2>
 
           {hasRating ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <ContentBadge
                 score={contentRating.languageScore ?? 0}
                 label="Language"
@@ -312,36 +321,49 @@ export default async function MovieDetailPage({
               />
               <ContentBadge
                 score={contentRating.scaryScore ?? 0}
-                label="Scary/Intense"
+                label="Frightening"
                 size="md"
               />
             </div>
           ) : (
-            <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
-              <p className="text-muted-foreground">
-                Content ratings haven&apos;t been collected for this movie yet.
+            <div className="border border-dashed border-border bg-muted/30 p-6 text-center">
+              <p className="font-serif text-lg text-foreground">
+                Not yet rated
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Ratings will be fetched automatically in the background.
+              <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+                Content ratings haven&apos;t been collected for this film yet.
+                They&apos;ll be fetched automatically in the background —
+                check back shortly.
               </p>
             </div>
           )}
 
-          {/* Specific language found with counts */}
+          {/* Specific language found with counts — rendered with the
+              mask helper so the UI doesn't enumerate every bad word verbatim
+              while still communicating WHAT was found. The tooltip shows
+              the raw word + count on hover. */}
           {hasRating &&
             contentRating.specificWords &&
             contentRating.specificWords.length > 0 && (
-              <div className="rounded-lg border border-border p-4">
-                <h3 className="font-semibold mb-2">Specific Language Found</h3>
-                <div className="flex flex-wrap gap-2">
+              <div className="border-t border-border pt-5">
+                <h3 className="small-caps text-[11px] text-muted-foreground mb-3">
+                  Specific Language Found
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
                   {contentRating.specificWords.map((word: string) => {
                     const count = contentRating.profanityWordCounts[word];
                     return (
                       <span
                         key={word}
-                        className="inline-flex items-center px-2 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium"
+                        title={`${word}${count && count > 1 ? ` — ${count}×` : ""}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 font-mono text-[11px] text-destructive bg-destructive/10 border border-destructive/20 rounded-sm"
                       >
-                        {word}{count && count > 1 ? ` (${count}\u00d7)` : ""}
+                        <span>{maskProfanity(word)}</span>
+                        {count && count > 1 && (
+                          <span className="text-destructive/70 tabular-nums">
+                            ×{count}
+                          </span>
+                        )}
                       </span>
                     );
                   })}
@@ -349,20 +371,23 @@ export default async function MovieDetailPage({
               </div>
             )}
 
-          {/* Detailed notes */}
+          {/* Detailed notes — editorial two-column, subtle dividers */}
           {hasRating && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
               {contentRating.languageNotes && (
-                <DetailCard title="Language Details" text={contentRating.languageNotes} />
+                <DetailCard label="Language" text={contentRating.languageNotes} />
               )}
               {contentRating.violenceNotes && (
-                <DetailCard title="Violence Details" text={contentRating.violenceNotes} />
+                <DetailCard label="Violence" text={contentRating.violenceNotes} />
               )}
               {contentRating.sexualNotes && (
-                <DetailCard title="Sexual Content Details" text={contentRating.sexualNotes} />
+                <DetailCard
+                  label="Sexual Content"
+                  text={contentRating.sexualNotes}
+                />
               )}
               {contentRating.scaryNotes && (
-                <DetailCard title="Scary/Intense Details" text={contentRating.scaryNotes} />
+                <DetailCard label="Frightening" text={contentRating.scaryNotes} />
               )}
             </div>
           )}
@@ -370,16 +395,20 @@ export default async function MovieDetailPage({
 
         {/* Where to Watch */}
         {movie.streamingProviders && movie.streamingProviders.length > 0 && (
-          <section className="mt-12 space-y-4">
-            <h2 className="text-2xl font-bold">Where to Watch</h2>
+          <section className="mt-16 space-y-5">
+            <h2 className="small-caps text-[12px] text-muted-foreground">
+              Where to Watch
+            </h2>
             <StreamingBadges providers={movie.streamingProviders} />
           </section>
         )}
 
         {/* Per-Source Content Breakdown */}
         {movie.contentSources && movie.contentSources.length > 0 && (
-          <section className="mt-12 mb-12 space-y-4">
-            <h2 className="text-xl font-bold">Ratings by Source</h2>
+          <section className="mt-16 mb-20 space-y-5">
+            <h2 className="small-caps text-[12px] text-muted-foreground">
+              Ratings by Source
+            </h2>
             <div className="space-y-3">
               {movie.contentSources.map(
                 (source: {
@@ -398,59 +427,85 @@ export default async function MovieDetailPage({
                 }) => (
                   <details
                     key={source.source}
-                    className="rounded-lg border border-border overflow-hidden"
+                    className="group border border-border overflow-hidden rounded-md transition-colors hover:border-foreground/20"
                   >
-                    <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold text-sm">
+                    <summary className="flex items-center justify-between gap-3 p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="font-serif text-base truncate">
                           {formatSourceName(source.source)}
                         </span>
                         {source.recommendedAge && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                          <span className="small-caps text-[10px] text-muted-foreground shrink-0">
                             Ages {source.recommendedAge}+
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         {source.languageScore !== null && (
-                          <ContentBadge score={source.languageScore} label="L" size="sm" />
+                          <ContentBadge
+                            score={source.languageScore}
+                            label="L"
+                            size="sm"
+                          />
                         )}
                         {source.violenceScore !== null && (
-                          <ContentBadge score={source.violenceScore} label="V" size="sm" />
+                          <ContentBadge
+                            score={source.violenceScore}
+                            label="V"
+                            size="sm"
+                          />
                         )}
                         {source.sexualContentScore !== null && (
-                          <ContentBadge score={source.sexualContentScore} label="S" size="sm" />
+                          <ContentBadge
+                            score={source.sexualContentScore}
+                            label="S"
+                            size="sm"
+                          />
                         )}
                         {source.scaryScore !== null && (
-                          <ContentBadge score={source.scaryScore} label="Sc" size="sm" />
+                          <ContentBadge
+                            score={source.scaryScore}
+                            label="F"
+                            size="sm"
+                          />
                         )}
                         {source.sourceUrl && (
                           <a
                             href={source.sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary hover:underline ml-2"
+                            className="text-muted-foreground hover:text-primary ml-1 transition-colors"
                             onClick={(e) => e.stopPropagation()}
+                            aria-label="Open source"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         )}
                       </div>
                     </summary>
-                    <div className="border-t border-border p-4 space-y-3 bg-muted/20">
-                      {/* Profanity words from this source */}
+                    <div className="border-t border-border p-5 space-y-4 bg-muted/20">
                       {Object.keys(source.profanityWords).length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-muted-foreground mb-1">Language found:</p>
+                          <p className="small-caps text-[10px] text-muted-foreground mb-2">
+                            Language Found
+                          </p>
                           <div className="flex flex-wrap gap-1.5">
-                            {Object.entries(source.profanityWords).map(([word, count]) => (
-                              <span
-                                key={word}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-xs"
-                              >
-                                {word}{(count as number) > 1 ? ` (${count}\u00d7)` : ""}
-                              </span>
-                            ))}
+                            {Object.entries(source.profanityWords).map(
+                              ([word, count]) => (
+                                <span
+                                  key={word}
+                                  title={`${word}${(count as number) > 1 ? ` — ${count}×` : ""}`}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] text-destructive bg-destructive/10 border border-destructive/20 rounded-sm"
+                                >
+                                  <span>{maskProfanity(word)}</span>
+                                  {(count as number) > 1 && (
+                                    <span className="text-destructive/70 tabular-nums">
+                                      ×{count}
+                                    </span>
+                                  )}
+                                </span>
+                              ),
+                            )}
                           </div>
                         </div>
                       )}
@@ -461,10 +516,16 @@ export default async function MovieDetailPage({
                         <NoteBlock label="Violence" text={source.violenceNotes} />
                       )}
                       {source.sexualNotes && (
-                        <NoteBlock label="Sexual Content" text={source.sexualNotes} />
+                        <NoteBlock
+                          label="Sexual Content"
+                          text={source.sexualNotes}
+                        />
                       )}
                       {source.scaryNotes && (
-                        <NoteBlock label="Scary/Intense" text={source.scaryNotes} />
+                        <NoteBlock
+                          label="Frightening"
+                          text={source.scaryNotes}
+                        />
                       )}
                     </div>
                   </details>
@@ -478,11 +539,48 @@ export default async function MovieDetailPage({
   );
 }
 
-function DetailCard({ title, text }: { title: string; text: string }) {
+/**
+ * Editorial stat — a single large figure with a small-caps label below.
+ * Used for IMDb / RT / Metacritic scores. No colored pill chrome.
+ */
+function Stat({
+  value,
+  label,
+  suffix,
+}: {
+  value: string;
+  label: string;
+  suffix?: string;
+}) {
   return (
-    <div className="rounded-lg border border-border p-4">
-      <h3 className="font-semibold mb-2 text-sm">{title}</h3>
-      <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+    <div className="flex flex-col items-start">
+      <div className="font-serif text-2xl leading-none tabular-nums">
+        {value}
+        {suffix && (
+          <span className="text-xl text-muted-foreground">{suffix}</span>
+        )}
+      </div>
+      <div className="small-caps text-[10px] text-muted-foreground mt-1.5">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Labeled paragraph of scraped detail text. Editorial: tiny small-caps
+ * label rule across the top, then body in Fraunces so it reads as an
+ * inline article rather than a form-filled card.
+ */
+function DetailCard({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="border-t border-border pt-4">
+      <h3 className="small-caps text-[10px] text-muted-foreground mb-2">
+        {label}
+      </h3>
+      <p className="font-serif text-[15px] leading-relaxed text-foreground/90">
+        {text}
+      </p>
     </div>
   );
 }
@@ -490,8 +588,10 @@ function DetailCard({ title, text }: { title: string; text: string }) {
 function NoteBlock({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-muted-foreground mb-0.5">{label}:</p>
-      <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+      <p className="small-caps text-[10px] text-muted-foreground mb-1">
+        {label}
+      </p>
+      <p className="text-[14px] leading-relaxed text-foreground/80">{text}</p>
     </div>
   );
 }

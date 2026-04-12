@@ -566,7 +566,7 @@ function MoviesPageInner() {
   const filterChips = getActiveFilterChips(filters, providers, handleFilterChange);
 
   return (
-    <div className="container mx-auto px-4 max-w-7xl py-6">
+    <div className="container mx-auto px-4 sm:px-6 max-w-7xl py-6 sm:py-10">
       {/* Sync Error Banner */}
       {syncError && (
         <div className="mb-6 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
@@ -580,121 +580,123 @@ function MoviesPageInner() {
         <div className="mb-6 p-4 rounded-lg border border-primary/30 bg-primary/5 flex items-center gap-3">
           <RefreshCw className="h-5 w-5 text-primary animate-spin" />
           <div>
-            <p className="font-medium text-primary">Syncing movie database...</p>
+            <p className="font-medium text-primary">Syncing movie database…</p>
             <p className="text-sm text-muted-foreground">
-              Fetching movies from TMDB. This only happens once. Movies will appear shortly.
+              Fetching movies from TMDB. This only happens once. Movies will
+              appear shortly.
             </p>
           </div>
         </div>
       )}
 
-      {/* Header — compact stacked layout on mobile, inline row on sm+. */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
-            Browse Movies
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
-            {total > 0
-              ? `${total.toLocaleString()} movies found`
-              : loading
-                ? "Loading..."
-                : "No movies found"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
-          <div className="flex-1 sm:w-72 min-w-0">
-            <SearchBar onSearch={handleSearch} initialValue={filters.search} />
+      {/* Editorial masthead — Fraunces H1, small-caps count, no SaaS-subtitle
+          vibe. "Films" (not "Movies Found") is the kind of one-word decision
+          that keeps the magazine feel. */}
+      <header className="flex flex-col gap-5 sm:gap-6 mb-8">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl leading-[0.95] tracking-tight">
+              Browse
+            </h1>
+            <p className="small-caps text-[11px] text-muted-foreground mt-2">
+              {total > 0
+                ? `${total.toLocaleString()} Films`
+                : loading
+                  ? "Loading…"
+                  : "No films"}
+            </p>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            /* h-11 gives a 44px tap target (iOS HIG); shrink-0 keeps it on
-               the same row as the search bar on phones. */
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border h-11 px-3 text-sm font-medium hover:bg-accent transition-colors md:hidden"
-            aria-label={
-              showFilters
-                ? "Close filters"
-                : activeFilterCount > 0
+
+          {/* Actions row — sort, search, filter-trigger — aligned to the
+              right edge of the masthead so they read as tools beside the
+              title, not a second row of chrome. */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="flex-1 md:w-64 md:flex-initial min-w-0">
+              <SearchBar
+                onSearch={handleSearch}
+                initialValue={filters.search}
+              />
+            </div>
+            <SortBar
+              sort={filters.sort}
+              sortDirection={filters.sortDirection}
+              onChange={handleFilterChange}
+              className="shrink-0"
+            />
+            <button
+              onClick={() => setShowFilters(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border h-9 px-3 text-[13px] font-medium hover:bg-muted transition-colors"
+              aria-label={
+                activeFilterCount > 0
                   ? `Open filters (${activeFilterCount} active)`
                   : "Open filters"
-            }
-          >
-            {showFilters ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <SlidersHorizontal className="h-4 w-4" />
-            )}
-            <span className="hidden xs:inline">Filters</span>
-            {activeFilterCount > 0 && (
-              <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Active filter chips — desktop only. On mobile the "Filters (N)"
-          button already surfaces the count, and the chip row was taking
-          over the whole viewport on phones. */}
-      {filterChips.length > 0 && (
-        <div className="hidden md:flex flex-wrap items-center gap-2 mb-4">
-          {filterChips.map((chip, i) => (
-            <span
-              key={`${chip.label}-${i}`}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium"
+              }
             >
-              {chip.label}
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="hidden xs:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.125rem] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Active filter chips — desktop only. Thin serif-adjacent pill
+            style; brick accent reserved for the Clear All CTA so it reads
+            as the resolving action. */}
+        {filterChips.length > 0 && (
+          <div className="hidden md:flex flex-wrap items-center gap-2">
+            {filterChips.map((chip, i) => (
+              <span
+                key={`${chip.label}-${i}`}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-3 py-1 text-[12px] font-medium text-foreground"
+              >
+                {chip.label}
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-border transition-colors"
+                  aria-label={`Remove ${chip.label} filter`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            {filterChips.length > 1 && (
               <button
                 type="button"
-                onClick={chip.onRemove}
-                className="ml-0.5 rounded-full p-0.5 hover:bg-primary/20 transition-colors"
-                aria-label={`Remove ${chip.label} filter`}
+                onClick={handleClearAllFilters}
+                className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 text-primary px-3 py-1 text-[12px] font-medium hover:bg-primary/20 transition-colors"
               >
-                <X className="h-3 w-3" />
+                Clear all
               </button>
-            </span>
-          ))}
-          {filterChips.length > 1 && (
-            <button
-              type="button"
-              onClick={handleClearAllFilters}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
-            >
-              Clear All
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-6">
-        {/* Desktop filter sidebar */}
-        <aside className="hidden md:block w-72 shrink-0">
-          <div className="sticky top-20">
-            <FilterPanel
-              currentFilters={filters}
-              onFilterChange={handleFilterChange}
-              streamingProviders={providers}
-              genres={GENRES}
-            />
+            )}
           </div>
-        </aside>
+        )}
+      </header>
 
-        {/* Mobile filter overlay */}
-        {showFilters && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setShowFilters(false)}
-            />
-            <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[90vw] bg-background border-l border-border overflow-y-auto p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Filters</h2>
-                <button onClick={() => setShowFilters(false)}>
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+      {/* Filter sheet — slide-over from the right on every breakpoint.
+          Replaces the desktop sidebar so posters get the full canvas. */}
+      {showFilters && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setShowFilters(false)}
+          />
+          <div className="absolute right-0 top-0 bottom-0 w-[22rem] max-w-[92vw] bg-background border-l border-border shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-background/95 backdrop-blur border-b border-border">
+              <h2 className="font-serif text-xl">Filters</h2>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="h-9 w-9 rounded-md inline-flex items-center justify-center hover:bg-muted transition-colors"
+                aria-label="Close filters"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
               <FilterPanel
                 currentFilters={filters}
                 onFilterChange={handleFilterChange}
@@ -703,61 +705,53 @@ function MoviesPageInner() {
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Movie grid — wider cards (2/3/4 cols max) so posters carry the page */}
+      <div className="min-w-0">
+        <MovieGrid
+          movies={movies}
+          loading={loading}
+          watchlistStatusById={watchlistStatusById}
+        />
+
+        {/* Skeleton loading for Load More */}
+        {loadingMore && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-8 mt-8">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-[2/3] w-full bg-muted ring-1 ring-border/60" />
+                <div className="mt-3 space-y-2">
+                  <div className="h-4 bg-muted-foreground/15 rounded w-3/4" />
+                  <div className="h-3 bg-muted-foreground/10 rounded w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
-        {/* Movie grid */}
-        <div className="flex-1 min-w-0">
-          {/* Sort bar — full-width on mobile so the dropdown is comfortable
-              to tap, right-aligned inline on sm+. */}
-          <div className="flex items-center justify-end mb-4">
-            <SortBar
-              sort={filters.sort}
-              sortDirection={filters.sortDirection}
-              onChange={handleFilterChange}
-              className="w-full sm:w-auto"
-            />
+        {/* Load More — editorial "continue reading" feel */}
+        {total > 0 && (
+          <div className="flex flex-col items-center gap-3 mt-12">
+            <p className="small-caps text-[11px] text-muted-foreground">
+              {movies.length} of {total.toLocaleString()}
+            </p>
+            {hasMore && (
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-8 py-2.5 rounded-md border border-border text-[13px] font-medium hover:bg-muted hover:border-foreground/30 transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
-
-          <MovieGrid
-            movies={movies}
-            loading={loading}
-            watchlistStatusById={watchlistStatusById}
-          />
-
-          {/* Skeleton loading cards while loading more */}
-          {loadingMore && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="animate-pulse rounded-lg overflow-hidden bg-muted border border-border">
-                  <div className="aspect-[2/3] bg-muted-foreground/10" />
-                  <div className="p-2 space-y-2">
-                    <div className="h-4 bg-muted-foreground/10 rounded w-3/4" />
-                    <div className="h-3 bg-muted-foreground/10 rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Load More + progress */}
-          {total > 0 && (
-            <div className="flex flex-col items-center gap-3 mt-8">
-              <p className="text-sm text-muted-foreground">
-                Showing {movies.length} of {total} movies
-              </p>
-              {hasMore && (
-                <button
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                  className="px-6 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
-                >
-                  {loadingMore ? "Loading..." : "Load More"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      {/* Editorial page-bottom rule so the footer doesn't sit on top of
+          the Load More button. */}
     </div>
   );
 }
@@ -771,9 +765,11 @@ export default function MoviesPage() {
   return (
     <Suspense
       fallback={
-        <div className="container mx-auto px-4 max-w-7xl py-6">
-          <h1 className="text-2xl md:text-3xl font-bold">Browse Movies</h1>
-          <p className="text-sm text-muted-foreground mt-1">Loading...</p>
+        <div className="container mx-auto px-4 sm:px-6 max-w-7xl py-10">
+          <h1 className="font-serif text-4xl sm:text-5xl">Browse</h1>
+          <p className="small-caps text-[11px] text-muted-foreground mt-2">
+            Loading…
+          </p>
         </div>
       }
     >
