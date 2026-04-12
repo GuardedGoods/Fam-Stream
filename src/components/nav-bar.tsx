@@ -4,13 +4,27 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Film, Search, Menu, User, LogOut, X } from "lucide-react";
+import { Search, Menu, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search-bar";
 
+/**
+ * NavBar — slim editorial chrome.
+ *
+ * Design notes:
+ *   - No logo icon — the Fraunces wordmark is the mark. Cinema marquees,
+ *     film-magazine mastheads, and Mubi-style editorial all use just
+ *     type. A bolted-on icon is the SaaS tell we're rejecting.
+ *   - 48px height (was 56) so the mark reads as a tight top rule, not a
+ *     chunky app bar. Posters breathe below.
+ *   - Links hang on the right in Public Sans, weight 500, small-cap ish
+ *     (we use all-small-caps via `.small-caps`) so they feel like section
+ *     headers rather than button labels.
+ *   - Mobile menu opens a full-screen sheet with oversized type — app-like
+ *     on phones, not a dropdown afterthought.
+ */
+
 interface NavBarProps {
-  // Optional: let callers inject custom search behavior. If absent, the search
-  // bar navigates to the movies page with ?search=<query>.
   onSearch?: (query: string) => void;
 }
 
@@ -22,14 +36,8 @@ export function NavBar({ onSearch }: NavBarProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const handleSignIn = () => {
-    // Go through Auth.js's signIn() so NEXTAUTH_URL and CSRF are handled for us.
-    signIn("google", { callbackUrl: "/" });
-  };
-
-  const handleSignOut = () => {
-    signOut({ callbackUrl: "/" });
-  };
+  const handleSignIn = () => signIn("google", { callbackUrl: "/" });
+  const handleSignOut = () => signOut({ callbackUrl: "/" });
 
   const handleSearch = (query: string) => {
     if (onSearch) {
@@ -42,49 +50,55 @@ export function NavBar({ onSearch }: NavBarProps = {}) {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-gray-950/95 dark:supports-[backdrop-filter]:bg-gray-950/60">
-      <div className="mx-auto flex h-14 max-w-7xl items-center px-4 sm:px-6">
-        {/* Left: Logo */}
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="mx-auto flex h-12 max-w-7xl items-center px-4 sm:px-6">
+        {/* Wordmark — Fraunces, no icon. "Night" picks up a secondary hue
+            so the mark reads as two beats, like a film-magazine masthead. */}
         <Link
           href="/"
-          className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-gray-100 mr-6"
+          className="mr-8 font-serif text-lg font-medium tracking-tight text-foreground"
         >
-          <Film className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          <span className="hidden sm:inline">MovieNight</span>
+          Movie<span className="text-primary">Night</span>
         </Link>
 
-        {/* Center: Desktop Nav */}
+        {/* Desktop links */}
         <nav className="hidden md:flex items-center gap-6 flex-1">
           <Link
-            href="/"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+            href="/movies"
+            className="small-caps text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Browse
           </Link>
-          <Link
-            href="/watchlist"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            Watchlist
-          </Link>
+          {user && (
+            <Link
+              href="/watchlist"
+              className="small-caps text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Watchlist
+            </Link>
+          )}
+          {user && (
+            <Link
+              href="/settings"
+              className="small-caps text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Settings
+            </Link>
+          )}
         </nav>
 
-        {/* Desktop search + user area */}
+        {/* Desktop — search + user */}
         <div className="hidden md:flex items-center gap-2 ml-auto">
           {searchOpen ? (
             <div className="flex items-center gap-2">
-              <SearchBar
-                onSearch={handleSearch}
-                autoFocus
-                className="w-64"
-              />
+              <SearchBar onSearch={handleSearch} autoFocus className="w-64" />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSearchOpen(false)}
+                aria-label="Close search"
               >
                 <X className="h-4 w-4" />
-                <span className="sr-only">Close search</span>
               </Button>
             </div>
           ) : (
@@ -92,123 +106,144 @@ export function NavBar({ onSearch }: NavBarProps = {}) {
               variant="ghost"
               size="icon"
               onClick={() => setSearchOpen(true)}
+              aria-label="Search"
             >
               <Search className="h-4 w-4" />
-              <span className="sr-only">Search</span>
             </Button>
           )}
 
           {user ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pl-2">
               {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={user.image}
                   alt={user.name ?? "User"}
-                  className="h-8 w-8 rounded-full"
+                  className="h-7 w-7 rounded-full ring-1 ring-border"
                 />
               ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
-                  <User className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  {(user.name ?? "?").slice(0, 1).toUpperCase()}
                 </div>
               )}
-              <Button variant="ghost" size="icon" onClick={handleSignOut}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                aria-label="Sign out"
+              >
                 <LogOut className="h-4 w-4" />
-                <span className="sr-only">Sign out</span>
               </Button>
             </div>
           ) : (
-            <Button variant="outline" size="sm" onClick={handleSignIn}>
-              <User className="h-4 w-4 mr-1" />
+            <Button variant="default" size="sm" onClick={handleSignIn}>
               Sign In
             </Button>
           )}
         </div>
 
-        {/* Mobile: search + hamburger */}
+        {/* Mobile — search + hamburger */}
         <div className="flex items-center gap-1 ml-auto md:hidden">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSearchOpen(!searchOpen)}
+            onClick={() => setSearchOpen((v) => !v)}
+            aria-label="Search"
           >
             <Search className="h-4 w-4" />
-            <span className="sr-only">Search</span>
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
           >
             {mobileMenuOpen ? (
               <X className="h-5 w-5" />
             ) : (
               <Menu className="h-5 w-5" />
             )}
-            <span className="sr-only">Menu</span>
           </Button>
         </div>
       </div>
 
-      {/* Mobile search bar */}
+      {/* Mobile search */}
       {searchOpen && (
-        <div className="border-t border-gray-200 dark:border-gray-800 px-4 py-2 md:hidden">
+        <div className="border-t border-border px-4 py-2 md:hidden">
           <SearchBar onSearch={handleSearch} autoFocus />
         </div>
       )}
 
-      {/* Mobile menu */}
+      {/* Mobile menu — full-width sheet, oversized editorial type */}
       {mobileMenuOpen && (
-        <div className="border-t border-gray-200 dark:border-gray-800 md:hidden">
-          <nav className="flex flex-col px-4 py-3 space-y-1">
+        <div className="border-t border-border md:hidden">
+          <nav className="flex flex-col p-6 gap-1">
             <Link
-              href="/"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              href="/movies"
               onClick={() => setMobileMenuOpen(false)}
+              className="font-serif text-2xl text-foreground py-2"
             >
-              <Film className="h-4 w-4" />
               Browse
             </Link>
-            <Link
-              href="/watchlist"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Watchlist
-            </Link>
+            {user && (
+              <Link
+                href="/watchlist"
+                onClick={() => setMobileMenuOpen(false)}
+                className="font-serif text-2xl text-foreground py-2"
+              >
+                Watchlist
+              </Link>
+            )}
+            {user && (
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="font-serif text-2xl text-foreground py-2"
+              >
+                Settings
+              </Link>
+            )}
 
-            <div className="my-1 h-px bg-gray-200 dark:bg-gray-800" />
+            <div className="my-4 h-px bg-border" />
 
             {user ? (
-              <div className="flex items-center justify-between px-3 py-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
                   {user.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={user.image}
                       alt={user.name ?? "User"}
-                      className="h-7 w-7 rounded-full"
+                      className="h-9 w-9 rounded-full ring-1 ring-border"
                     />
                   ) : (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
-                      <User className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+                      {(user.name ?? "?").slice(0, 1).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    {user.name ?? "User"}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-foreground">
+                      {user.name ?? "User"}
+                    </span>
+                    {user.email && (
+                      <span className="text-xs text-muted-foreground">
+                        {user.email}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOut}
+                  aria-label="Sign out"
+                >
                   <LogOut className="h-4 w-4 mr-1" />
                   Sign Out
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mx-3"
-                onClick={handleSignIn}
-              >
-                <User className="h-4 w-4 mr-1" />
+              <Button variant="default" size="lg" onClick={handleSignIn}>
                 Sign In
               </Button>
             )}

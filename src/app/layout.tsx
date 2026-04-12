@@ -11,13 +11,6 @@ export const metadata: Metadata = {
   keywords: ["family movies", "content filter", "parental guide", "streaming"],
 };
 
-/**
- * `viewportFit: "cover"` extends the page under iOS notch / home-indicator
- * areas. globals.css pads the body with `env(safe-area-inset-*)` so nothing
- * is actually obscured — this just means the background runs edge-to-edge.
- * `maximumScale: 1` stops iOS from zooming the page when a text input is
- * focused (a UX annoyance on forms like the search bar).
- */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -36,12 +29,32 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <head>
+        {/*
+         * Fonts — Fraunces (serif, editorial headlines) + Public Sans
+         * (humanist sans, body/UI). Loaded via Google Fonts CSS at runtime
+         * rather than next/font because the repo's Docker build host may
+         * not have outbound internet; this approach degrades gracefully to
+         * system fonts if the stylesheet fails to load. The preconnect
+         * hints are the standard recommendation for minimizing FOUT.
+         */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&display=swap"
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <SessionProvider session={session}>
           <NavBar />
           <main className="flex-1">{children}</main>
-          <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-            <p>MovieNight &mdash; Family Movie Night Made Easy</p>
+          <footer className="border-t border-border mt-16 py-8 text-center small-caps text-xs text-muted-foreground">
+            MovieNight — Family Movie Night, Made Easy
           </footer>
         </SessionProvider>
       </body>

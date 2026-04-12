@@ -1,31 +1,91 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --primary: #6d28d9;
-  --primary-foreground: #ffffff;
-  --secondary: #f3f4f6;
-  --secondary-foreground: #1f2937;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #f3f4f6;
-  --accent-foreground: #1f2937;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #6d28d9;
-  --radius: 0.5rem;
+/* ===========================================================================
+ * MovieNight — "Warm Editorial" design tokens
+ *
+ * The design brief: cinematic + family-shared + balanced use. Not Netflix
+ * slickness, not VidAngel utility, not Kids-app playfulness. Think an indie
+ * film magazine that happens to be a family tool.
+ *
+ * Palette is built on warm neutrals (paper cream + charcoal, not cold
+ * white/black), a single cinematic accent (theater-curtain brick), and a
+ * supporting editorial secondary (marquee gold). Content-advisory severity
+ * colors are remapped off Tailwind defaults to warm, film-poster-adjacent
+ * hues so the whole UI reads as one considered palette, not stock UI kit.
+ * ========================================================================= */
 
-  --score-green: #22c55e;
-  --score-yellow: #eab308;
-  --score-orange: #f97316;
-  --score-red: #ef4444;
+:root {
+  /* Dark is the primary canvas — most users prefer it, and the warm charcoal
+     reads better than a cold pure-black for posters-as-hero treatment. */
+  --background: #111113; /* near-black, subtle green undertone */
+  --foreground: #f5f1eb; /* warm cream — not cold #f5f5f5 */
+  --muted: #1a1b1e;
+  --muted-foreground: #a39b8e; /* warm taupe */
+  --card: #1a1b1e;
+  --card-foreground: #f5f1eb;
+  --popover: #1a1b1e;
+  --popover-foreground: #f5f1eb;
+  --border: #2a2b30;
+  --input: #2a2b30;
+
+  /* Primary: theater-curtain brick red. Replaces shadcn's default purple.
+     Evokes cinema curtains and vintage movie posters. Used for active
+     filter state, primary CTAs, "On Watchlist" bookmark, severity=5. */
+  --primary: #b8432e;
+  --primary-foreground: #f5f1eb;
+
+  /* Secondary: marquee gold. Used for "Watched" state (paired with a green
+     undertone in-component), small accents. */
+  --secondary: #c4a574;
+  --secondary-foreground: #111113;
+
+  --accent: #1a1b1e;
+  --accent-foreground: #f5f1eb;
+
+  --destructive: #b8432e;
+  --destructive-foreground: #f5f1eb;
+
+  --ring: #b8432e;
+  --radius: 0.75rem; /* slightly more generous than shadcn's 0.5rem default */
+
+  /* Content advisory severity palette — 0 (clean) → 5 (severe).
+     Replaces Tailwind's green/yellow/orange/red quartet with warm, film-
+     poster hues. Severity-5 deliberately matches the primary accent so
+     "severe content" and "primary UI color" are the same brick — severe
+     feels like a stop cue, not a pastel. */
+  --score-0: #5b8f5f; /* forest */
+  --score-1: #7a9b65; /* sage */
+  --score-2: #9aa87a; /* olive */
+  --score-3: #c4a574; /* marquee gold */
+  --score-4: #d97b43; /* terracotta */
+  --score-5: #b8432e; /* brick */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Light mode is warm paper cream, not cold white. Cards lift to true
+       white so posters have a subtle paper-on-paper contrast. */
+    --background: #faf7f2;
+    --foreground: #1a1a1d;
+    --muted: #f2eee6;
+    --muted-foreground: #6b6359;
+    --card: #ffffff;
+    --card-foreground: #1a1a1d;
+    --popover: #ffffff;
+    --popover-foreground: #1a1a1d;
+    --border: #e6e1d6;
+    --input: #e6e1d6;
+
+    --primary: #b8432e;
+    --primary-foreground: #faf7f2;
+    --secondary: #c4a574;
+    --secondary-foreground: #1a1a1d;
+    --accent: #f2eee6;
+    --accent-foreground: #1a1a1d;
+    --destructive: #b8432e;
+    --destructive-foreground: #faf7f2;
+    --ring: #b8432e;
+  }
 }
 
 @theme inline {
@@ -48,38 +108,22 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-score-green: var(--score-green);
-  --color-score-yellow: var(--score-yellow);
-  --color-score-orange: var(--score-orange);
-  --color-score-red: var(--score-red);
+  --color-score-0: var(--score-0);
+  --color-score-1: var(--score-1);
+  --color-score-2: var(--score-2);
+  --color-score-3: var(--score-3);
+  --color-score-4: var(--score-4);
+  --color-score-5: var(--score-5);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #f5f5f5;
-    --card: #171717;
-    --card-foreground: #f5f5f5;
-    --popover: #171717;
-    --popover-foreground: #f5f5f5;
-    --primary: #8b5cf6;
-    --primary-foreground: #ffffff;
-    --secondary: #262626;
-    --secondary-foreground: #f5f5f5;
-    --muted: #262626;
-    --muted-foreground: #a3a3a3;
-    --accent: #262626;
-    --accent-foreground: #f5f5f5;
-    --destructive: #dc2626;
-    --destructive-foreground: #ffffff;
-    --border: #404040;
-    --input: #404040;
-    --ring: #8b5cf6;
-  }
+  /* Font stacks — resolved from Google Fonts at runtime (loaded via <link>
+     in layout.tsx). Fall back to sensible system fonts if the CDN fails. */
+  --font-serif: "Fraunces", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
 }
 
 * {
@@ -90,25 +134,22 @@ html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
-  /* Block horizontal scroll / rubber-band on iOS Safari. Any child that
-     overflows the viewport was a bug, so fail loud rather than scroll. */
+  font-family: var(--font-sans);
+  /* Block horizontal scroll / rubber-band on iOS Safari. */
   overflow-x: hidden;
   max-width: 100vw;
+  /* Global tabular numerals — scores, runtimes, years, counts all line up
+     in columns. One of the highest-impact micro-details in the redesign. */
+  font-variant-numeric: tabular-nums;
 }
 
 body {
-  /* Respect iPhone notch / Dynamic Island / home indicator when the browser
-     chrome is hidden (added-to-home-screen standalone mode). Left/right
-     insets padded so no content sits under rounded-corner cutouts. */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
-  /* iOS taps feel snappier without the 300ms double-tap-zoom delay. */
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Make every interactive element snappier on touch. */
 button,
 a,
 [role="button"] {
@@ -118,16 +159,53 @@ a,
 ::-webkit-scrollbar {
   width: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  background: var(--muted);
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
+  background: var(--border);
   border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--foreground);
+  background: var(--muted-foreground);
+}
+
+/* ---------------------------------------------------------------------------
+ * Typography utility classes
+ * ---
+ * `.font-serif`  — Fraunces variable serif for headlines, movie titles,
+ *                  section heroes. Opsz axis is auto-picked based on font
+ *                  size via next/font; we nudge stylistic sets for warmer
+ *                  letterforms (ss01 = alternate `a`, ss04 = alternate `g`).
+ * `.font-sans`   — Public Sans for UI, body, buttons. Not Inter.
+ * `.small-caps`  — Section labels ("CONTENT ADVISORY", "FILTERS"). Replaces
+ *                  the generic Tailwind `uppercase text-xs` treatment.
+ * ------------------------------------------------------------------------- */
+
+.font-serif {
+  font-family: var(--font-serif);
+  font-feature-settings:
+    "ss01" on,
+    "ss04" on;
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.small-caps {
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  font-family: var(--font-sans);
+}
+
+/* A subtle focus ring consistent with the accent */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

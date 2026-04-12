@@ -2,11 +2,27 @@ import Image from "next/image";
 import Link from "next/link";
 import { Bookmark, Check } from "lucide-react";
 import { cn, getImageUrl, getYear } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { ContentDot } from "@/components/content-badge";
+import { ContentMicroCaption } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
 import type { AggregatedContentRating, StreamingProviderInfo } from "@/types";
 
+/**
+ * MovieCard — editorial poster tile.
+ *
+ * Design notes (warm-editorial brief):
+ *   - Poster is the hero: sharp (no radius) so it reads as a photographic
+ *     object, not a UI chiclet; meta below is the caption.
+ *   - Title set in Fraunces (serif) at ~15px, 2-line clamp. The serif
+ *     character is what makes the grid feel like an indie-film magazine
+ *     page rather than a SaaS dashboard.
+ *   - Content severity is a typographic micro-caption (`L2 V3 S0 F1`) not
+ *     a row of colored dots — readable AND colorblind-friendlier, and keeps
+ *     the editorial rhythm with titles.
+ *   - Hover: 2px lift + slight background warm-up. No scale (scale is the
+ *     Tailwind-tutorial fingerprint we're rejecting).
+ *   - Watchlist/Watched badge is pinned to the top-right of the poster with
+ *     a subtle inner ring so it reads as "sticker" not "button".
+ */
 export type WatchlistStatus = "watchlist" | "watched" | null;
 
 interface MovieCardProps {
@@ -37,24 +53,29 @@ export function MovieCard({
   return (
     <Link
       href={`/movies/${slug}`}
-      className="group block rounded-lg overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow"
+      className={cn(
+        "group block transition-all duration-200",
+        // 2px lift on hover — the editorial tell. No scale.
+        "hover:-translate-y-0.5",
+      )}
     >
-      {/* Poster */}
-      <div className="relative aspect-[2/3] w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+      {/* Poster — sharp corners; treated as a photograph, not a card */}
+      <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted ring-1 ring-border/60 transition-shadow group-hover:ring-border group-hover:shadow-xl group-hover:shadow-black/30">
         <Image
           src={posterUrl}
           alt={title}
           fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-          className="object-cover transition-transform group-hover:scale-105"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover"
         />
+
         {watchlistStatus && (
           <div
             className={cn(
-              "absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2 ring-white/80 dark:ring-black/60",
+              "absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow-lg ring-2 ring-background/80 backdrop-blur-sm",
               watchlistStatus === "watched"
-                ? "bg-green-600 text-white"
-                : "bg-blue-600 text-white",
+                ? "bg-secondary text-secondary-foreground"
+                : "bg-primary text-primary-foreground",
             )}
             aria-label={
               watchlistStatus === "watched"
@@ -74,49 +95,45 @@ export function MovieCard({
             )}
           </div>
         )}
+
+        {mpaaRating && (
+          <span
+            className="absolute bottom-2 left-2 inline-flex items-center rounded-sm bg-background/90 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-foreground ring-1 ring-border/60"
+            aria-label={`MPAA rating ${mpaaRating}`}
+          >
+            {mpaaRating}
+          </span>
+        )}
       </div>
 
-      {/* Info */}
-      <div className="p-2 space-y-1.5">
-        {/* Title */}
-        <h3 className="text-sm font-medium leading-tight line-clamp-2 text-gray-900 dark:text-gray-100">
+      {/* Caption */}
+      <div className="mt-3 space-y-1.5">
+        <h3 className="font-serif text-[15px] leading-tight line-clamp-2 text-foreground">
           {title}
         </h3>
 
-        {/* Year + MPAA */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {year && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {year}
-            </span>
-          )}
-          {mpaaRating && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {mpaaRating}
-            </Badge>
-          )}
+        <div className="flex items-baseline gap-2 text-xs text-muted-foreground">
+          {year && <span className="tabular-nums">{year}</span>}
         </div>
 
-        {/* Content rating dots */}
         {contentRating ? (
-          <div className="flex items-center gap-1" title="L / V / S / Scary">
-            <ContentDot score={contentRating.languageScore} />
-            <ContentDot score={contentRating.violenceScore} />
-            <ContentDot score={contentRating.sexualContentScore} />
-            <ContentDot score={contentRating.scaryScore} />
-          </div>
+          <ContentMicroCaption
+            languageScore={contentRating.languageScore}
+            violenceScore={contentRating.violenceScore}
+            sexualContentScore={contentRating.sexualContentScore}
+            scaryScore={contentRating.scaryScore}
+          />
         ) : (
-          <Badge
-            variant="secondary"
-            className="text-[10px] px-1.5 py-0"
-          >
-            Unrated
-          </Badge>
+          <span className="small-caps text-[10px] text-muted-foreground/70">
+            No advisory yet
+          </span>
         )}
 
-        {/* Streaming providers */}
         {streamingProviders?.length > 0 && (
-          <div onClick={(e) => e.preventDefault()}>
+          <div
+            className="pt-0.5"
+            onClick={(e) => e.preventDefault()}
+          >
             <StreamingBadges providers={streamingProviders} size="sm" />
           </div>
         )}
