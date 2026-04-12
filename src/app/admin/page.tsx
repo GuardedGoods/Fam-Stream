@@ -14,6 +14,13 @@ import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+interface OmdbStatus {
+  keyPresent: boolean;
+  lastFailureKind: "rate-limit" | "invalid-key" | "no-key" | null;
+  lastFailureAt: string | null;
+  lastFailureMessage: string | null;
+}
+
 interface AdminStatus {
   totalMovies: number;
   withImdbId: number;
@@ -25,6 +32,7 @@ interface AdminStatus {
   envTmdbKeyPresent: boolean;
   envOpenaiKeyPresent: boolean;
   lastSyncedAt: string | null;
+  omdbStatus?: OmdbStatus;
 }
 
 export default function AdminPage() {
@@ -118,6 +126,13 @@ export default function AdminPage() {
               <EnvRow label="OpenAI" present={status.envOpenaiKeyPresent} />
             </div>
 
+            {/* Phase 4E: circuit-breaker warning. Rendered only when the
+                orchestrator's OMDb call hit a pipeline-fatal failure
+                (rate-limit or key-config). Explains why RT% is stuck. */}
+            {status.omdbStatus?.lastFailureKind && (
+              <OmdbFailureBanner omdb={status.omdbStatus} />
+            )}
+
             {/* Pipeline progress */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
               <Stat
@@ -206,6 +221,64 @@ export default function AdminPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function OmdbFailureBanner({ omdb }: { omdb: OmdbStatus }) {
+  const kind = omdb.lastFailureKind;
+  let headline = "OMDb pipeline halted";
+  let body: React.ReactNode = null;
+
+  if (kind === "rate-limit") {
+    headline = "OMDb quota exhausted";
+    body = (
+      <>
+        Free tier = <span className="tabular-nums">1,000</span> calls/day.
+        Quota resets at UTC 00:00, and the pipeline will automatically
+        retry on the next scheduled sync. To backfill faster, upgrade your
+        key at{" "}
+        <a
+          href="https://www.omdbapi.com/apikey.aspx"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-from-font underline-offset-2 hover:text-foreground"
+        >
+          omdbapi.com/apikey.aspx
+        </a>
+        .
+      </>
+    );
+  } else if (kind === "invalid-key" || kind === "no-key") {
+    headline = "OMDb key rejected";
+    body = (
+      <>
+        OMDb returned <span className="font-mono text-[12px]">&ldquo;{omdb.lastFailureMessage}&rdquo;</span>.
+        Check{" "}
+        <code className="font-mono text-[12px] bg-background/60 px-1 py-0.5 rounded-sm">
+          OMDB_API_KEY
+        </code>{" "}
+        in your <code className="font-mono text-[12px] bg-background/60 px-1 py-0.5 rounded-sm">.env</code>{" "}
+        (new keys must be activated via the email OMDb sends) and restart the
+        container.
+      </>
+    );
+  }
+
+  return (
+    <div
+      role="status"
+      className="border-l-2 pl-4 py-3 bg-[color:var(--score-5)]/5 border-[color:var(--score-5)]"
+    >
+      <h3 className="font-serif text-lg text-foreground">{headline}</h3>
+      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+        {body}
+      </p>
+      {omdb.lastFailureAt && (
+        <p className="small-caps text-[10px] text-muted-foreground mt-2 tabular-nums">
+          First tripped {formatDate(omdb.lastFailureAt)}
+        </p>
+      )}
     </div>
   );
 }

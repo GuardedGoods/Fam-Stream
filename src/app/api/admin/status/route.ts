@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { movies, contentRatingsAggregated } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
+import { getLastOmdbFailure } from "@/lib/sync/orchestrator";
 
 /**
  * Admin-only diagnostic endpoint.
@@ -82,6 +83,12 @@ export async function GET() {
       .from(movies)
       .get();
 
+    // Phase 4E: surface the OMDb circuit-breaker state so the dashboard
+    // can render a warning band when the pipeline tripped on rate limit
+    // or an invalid key. Process-memory — null after a fresh restart
+    // until the next Phase 2 run probes OMDb.
+    const omdbFailure = getLastOmdbFailure();
+
     return NextResponse.json({
       totalMovies: totalRow?.c ?? 0,
       withImdbId: withImdbRow?.c ?? 0,
@@ -93,6 +100,12 @@ export async function GET() {
       envTmdbKeyPresent: Boolean(process.env.TMDB_API_KEY),
       envOpenaiKeyPresent: Boolean(process.env.OPENAI_API_KEY),
       lastSyncedAt: lastSyncedRow?.ts ?? null,
+      omdbStatus: {
+        keyPresent: Boolean(process.env.OMDB_API_KEY),
+        lastFailureKind: omdbFailure?.kind ?? null,
+        lastFailureAt: omdbFailure?.at ?? null,
+        lastFailureMessage: omdbFailure?.message ?? null,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

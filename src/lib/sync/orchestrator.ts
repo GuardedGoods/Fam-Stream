@@ -16,8 +16,51 @@ import {
   getWatchProviders,
   generateSlug,
 } from "@/lib/apis/tmdb";
+import {
+  getMovieByImdbId,
+  OmdbRateLimitError,
+  type OmdbFailureKind,
+} from "@/lib/apis/omdb";
 import { mapCreditsToRows } from "./credits-mapper";
-import { getMovieByImdbId } from "@/lib/apis/omdb";
+
+// ---------------------------------------------------------------------------
+// OMDb circuit breaker
+//
+// OMDb's free tier caps at 1,000 calls/day and responds to over-limit
+// requests with HTTP 200 + {Response:"False", Error:"Request limit
+// reached!"}. The client now throws a typed OmdbRateLimitError on that
+// (and on invalid/missing key). The orchestrator tracks the most recent
+// such failure in module-scope state so that:
+//
+//   (a) after the first rate-limit/auth trip, subsequent movies in the
+//       same run skip the OMDb call entirely — preserves whatever wall
+//       clock + remaining quota we have;
+//   (b) the /api/admin/status endpoint can surface the failure in the
+//       dashboard so the operator knows why RT% is 0.
+//
+// State is intentionally process-memory. Quota resets at UTC midnight
+// and key-config fixes require a restart anyway, so persistence would
+// just complicate things.
+// ---------------------------------------------------------------------------
+
+interface OmdbFailure {
+  kind: OmdbFailureKind;
+  at: string; // ISO
+  message: string;
+}
+
+let omdbDisabledForRun = false;
+let lastOmdbFailure: OmdbFailure | null = null;
+
+export function getLastOmdbFailure(): OmdbFailure | null {
+  return lastOmdbFailure;
+}
+
+/** Exposed for tests so they can reset the circuit-breaker between runs. */
+export function __resetOmdbCircuitBreakerForTests() {
+  omdbDisabledForRun = false;
+  lastOmdbFailure = null;
+}
 import { scrapeKidsInMind } from "@/lib/scrapers/kids-in-mind";
 import { scrapeImdbParentalGuide } from "@/lib/scrapers/imdb-parental";
 import { scrapeCommonSenseMedia } from "@/lib/scrapers/common-sense-media";
@@ -64,6 +107,10 @@ export async function runSync(type: string) {
   }
 
   isSyncing = true;
+  // Reset the OMDb circuit breaker at the start of each run. Quota resets
+  // daily at UTC midnight so a fresh scheduled run should re-probe OMDb
+  // even if the last one tripped the breaker.
+  omdbDisabledForRun = false;
   console.log(`Starting ${type} sync...`);
 
   try {
@@ -285,8 +332,12 @@ async function syncMovies() {
         .where(eq(movies.id, movie.id))
         .run();
 
-      // Get OMDb data (Rotten Tomatoes scores)
-      if (details.imdb_id) {
+      // Get OMDb data (Rotten Tomatoes / Metacritic / IMDb rating).
+      // Gated by the module-level circuit breaker: once we've hit a
+      // rate-limit or key-config error in this run, stop hammering the
+      // API — each call burns ~200ms and has no chance of succeeding
+      // until the quota resets at UTC midnight or the key is fixed.
+      if (details.imdb_id && !omdbDisabledForRun) {
         try {
           const omdbData = await getMovieByImdbId(details.imdb_id);
           if (omdbData) {
@@ -300,7 +351,22 @@ async function syncMovies() {
               .run();
           }
         } catch (e) {
-          console.error(`OMDb error for ${movie.title}:`, e);
+          if (e instanceof OmdbRateLimitError) {
+            // Trip the circuit breaker for the remainder of this run.
+            omdbDisabledForRun = true;
+            lastOmdbFailure = {
+              kind: e.kind,
+              at: new Date().toISOString(),
+              message: e.omdbError,
+            };
+            console.warn(
+              `[orchestrator] OMDb ${e.kind} — skipping remaining OMDb ` +
+                `calls for this run. Message: "${e.omdbError}". Quota ` +
+                `resets at UTC 00:00; key problems require a .env edit + restart.`,
+            );
+          } else {
+            console.error(`OMDb error for ${movie.title}:`, e);
+          }
         }
       }
 

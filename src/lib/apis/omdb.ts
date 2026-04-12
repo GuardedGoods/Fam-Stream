@@ -6,6 +6,50 @@
 const OMDB_BASE_URL = 'https://www.omdbapi.com/';
 
 // ---------------------------------------------------------------------------
+// Typed failure for pipeline circuit-breaker use
+// ---------------------------------------------------------------------------
+
+/**
+ * OMDb returns HTTP 200 + {"Response":"False","Error":"..."} for every
+ * error, including rate-limit and invalid-key conditions. The orchestrator
+ * needs to distinguish "one movie's worth of trouble" from "the entire
+ * OMDb pathway is broken for the rest of this run" — so we throw a typed
+ * subclass of Error for the latter.
+ *
+ * Kinds:
+ *   - "rate-limit"  — free tier's 1000/day cap exhausted. Resets at UTC 00:00.
+ *   - "invalid-key" — OMDb says the key string is unrecognized.
+ *   - "no-key"      — OMDb says no key was supplied.
+ */
+export type OmdbFailureKind = 'rate-limit' | 'invalid-key' | 'no-key';
+
+export class OmdbRateLimitError extends Error {
+  readonly kind: OmdbFailureKind;
+  readonly omdbError: string;
+
+  constructor(kind: OmdbFailureKind, omdbError: string) {
+    super(`OMDb ${kind}: ${omdbError}`);
+    this.name = 'OmdbRateLimitError';
+    this.kind = kind;
+    this.omdbError = omdbError;
+  }
+}
+
+/**
+ * Classify an OMDb `Error` string. Returns the typed failure kind for
+ * pipeline-halting errors, or null for per-movie "not found" cases that
+ * should continue the run.
+ */
+function classifyOmdbError(errorMessage: string | undefined): OmdbFailureKind | null {
+  if (!errorMessage) return null;
+  // Exact strings per OMDb's current behavior (Dec 2024 — stable for years).
+  if (errorMessage === 'Request limit reached!') return 'rate-limit';
+  if (errorMessage === 'Invalid API key!') return 'invalid-key';
+  if (errorMessage === 'No API key provided.') return 'no-key';
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -164,6 +208,11 @@ function parseOmdbMovie(raw: OmdbMovie): ParsedOmdbMovie {
 /**
  * Fetch movie data by IMDb ID, including Rotten Tomatoes and Metacritic scores.
  * Returns null if the movie is not found.
+ *
+ * Throws `OmdbRateLimitError` (subclass of Error) when the failure is
+ * pipeline-fatal — quota exhausted, key invalid, or key missing. The
+ * orchestrator's circuit breaker catches that class and halts further
+ * OMDb calls for the rest of the sync run.
  */
 export async function getMovieByImdbId(
   imdbId: string,
@@ -171,6 +220,10 @@ export async function getMovieByImdbId(
   const data = (await omdbFetch({ i: imdbId, plot: 'full' })) as unknown as OmdbMovie;
 
   if (data.Response === 'False') {
+    const kind = classifyOmdbError(data.Error);
+    if (kind) {
+      throw new OmdbRateLimitError(kind, data.Error ?? '');
+    }
     if (data.Error === 'Movie not found!' || data.Error === 'Incorrect IMDb ID.') {
       return null;
     }
@@ -183,6 +236,9 @@ export async function getMovieByImdbId(
 /**
  * Search movies by title, optionally filtering by year.
  * Returns an array of search results, or an empty array if nothing is found.
+ *
+ * Propagates `OmdbRateLimitError` for pipeline-fatal failures for symmetry
+ * with `getMovieByImdbId`, in case this is ever called from admin tooling.
  */
 export async function searchMovies(
   title: string,
@@ -200,6 +256,10 @@ export async function searchMovies(
   const data = (await omdbFetch(params)) as unknown as OmdbSearchResponse;
 
   if (data.Response === 'False') {
+    const kind = classifyOmdbError(data.Error);
+    if (kind) {
+      throw new OmdbRateLimitError(kind, data.Error ?? '');
+    }
     if (data.Error === 'Movie not found!' || data.Error === 'Too many results.') {
       return [];
     }
