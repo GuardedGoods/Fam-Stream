@@ -22,6 +22,7 @@ import {
   streamingProviders,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { getUserMovieStatus } from "@/lib/watchlist/server";
 
 function getMovie(slug: string) {
   const movie = db
@@ -139,6 +140,7 @@ export default async function MovieDetailPage({
 }) {
   const { slug } = await params;
   const movie = getMovie(slug);
+  const currentStatus = movie ? await getUserMovieStatus(movie.id) : null;
 
   if (!movie) {
     return (
@@ -282,7 +284,7 @@ export default async function MovieDetailPage({
             {/* Watchlist Button */}
             <WatchlistButton
               movieId={movie.id}
-              currentStatus={null}
+              currentStatus={currentStatus}
             />
           </div>
         </div>

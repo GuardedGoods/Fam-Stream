@@ -1,10 +1,15 @@
-import { MovieCard } from "@/components/movie-card";
+import { MovieCard, type WatchlistStatus } from "@/components/movie-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MovieWithDetails } from "@/types";
 
 interface MovieGridProps {
   movies: MovieWithDetails[] | unknown[];
   loading?: boolean;
+  /**
+   * Map of movie.id -> the signed-in user's status for that movie. Movies
+   * not in the map render without a watchlist/watched badge.
+   */
+  watchlistStatusById?: Map<number, Exclude<WatchlistStatus, null>>;
 }
 
 function MovieCardSkeleton() {
@@ -29,7 +34,11 @@ function MovieCardSkeleton() {
   );
 }
 
-export function MovieGrid({ movies, loading = false }: MovieGridProps) {
+export function MovieGrid({
+  movies,
+  loading = false,
+  watchlistStatusById,
+}: MovieGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -89,6 +98,7 @@ export function MovieGrid({ movies, loading = false }: MovieGridProps) {
           mpaaRating={movie.mpaaRating}
           contentRating={movie.contentRating}
           streamingProviders={movie.streamingProviders || []}
+          watchlistStatus={watchlistStatusById?.get(movie.id) ?? null}
         />
       ))}
     </div>

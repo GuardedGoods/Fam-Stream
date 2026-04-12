@@ -4,10 +4,14 @@ import { useState } from "react";
 import { Plus, Check, Eye, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  updateWatchlistStatus,
+  type WatchlistStatus,
+} from "@/lib/watchlist/client";
 
 interface WatchlistButtonProps {
   movieId: number;
-  currentStatus: "watchlist" | "watched" | null;
+  currentStatus: WatchlistStatus;
   className?: string;
 }
 
@@ -19,24 +23,13 @@ export function WatchlistButton({
   const [status, setStatus] = useState(currentStatus);
   const [loading, setLoading] = useState(false);
 
-  async function updateStatus(newStatus: "watchlist" | "watched" | null) {
+  async function updateStatus(newStatus: WatchlistStatus) {
     const previousStatus = status;
     setStatus(newStatus);
     setLoading(true);
 
     try {
-      const res = await fetch("/api/watchlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          movieId,
-          status: newStatus,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to update watchlist");
-      }
+      await updateWatchlistStatus(movieId, newStatus);
     } catch {
       // Rollback on error
       setStatus(previousStatus);

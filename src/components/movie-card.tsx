@@ -1,10 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Bookmark, Check } from "lucide-react";
 import { cn, getImageUrl, getYear } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ContentDot } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
 import type { AggregatedContentRating, StreamingProviderInfo } from "@/types";
+
+export type WatchlistStatus = "watchlist" | "watched" | null;
 
 interface MovieCardProps {
   title: string;
@@ -14,6 +17,8 @@ interface MovieCardProps {
   mpaaRating: string | null;
   contentRating: AggregatedContentRating | null;
   streamingProviders: StreamingProviderInfo[];
+  /** Signed-in user's status for this movie. Absent or null renders no badge. */
+  watchlistStatus?: WatchlistStatus;
 }
 
 export function MovieCard({
@@ -24,6 +29,7 @@ export function MovieCard({
   mpaaRating,
   contentRating,
   streamingProviders,
+  watchlistStatus,
 }: MovieCardProps) {
   const year = getYear(releaseDate);
   const posterUrl = getImageUrl(posterPath, "w342");
@@ -42,6 +48,32 @@ export function MovieCard({
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           className="object-cover transition-transform group-hover:scale-105"
         />
+        {watchlistStatus && (
+          <div
+            className={cn(
+              "absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2 ring-white/80 dark:ring-black/60",
+              watchlistStatus === "watched"
+                ? "bg-green-600 text-white"
+                : "bg-blue-600 text-white",
+            )}
+            aria-label={
+              watchlistStatus === "watched"
+                ? "Already watched"
+                : "On your watchlist"
+            }
+            title={
+              watchlistStatus === "watched"
+                ? "Already watched"
+                : "On your watchlist"
+            }
+          >
+            {watchlistStatus === "watched" ? (
+              <Check className="h-4 w-4" strokeWidth={3} />
+            ) : (
+              <Bookmark className="h-4 w-4" fill="currentColor" />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Info */}

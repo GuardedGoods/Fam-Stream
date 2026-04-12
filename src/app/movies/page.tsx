@@ -307,6 +307,14 @@ function MoviesPageInner() {
   const [total, setTotal] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  /**
+   * Map of movie.id -> user's saved status for that movie. Populated once
+   * on mount from `/api/user/watchlist` (401 for logged-out users, which we
+   * ignore — empty map means no badges rendered).
+   */
+  const [watchlistStatusById, setWatchlistStatusById] = useState<
+    Map<number, "watchlist" | "watched">
+  >(new Map());
   const initChecked = useRef(false);
 
   // Initialize filters from URL search params (supports back-button / refresh / sharing)
@@ -444,6 +452,27 @@ function MoviesPageInner() {
       .then((r) => r.json())
       .then((data) => {
         if (data.providers) setProviders(data.providers);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch the signed-in user's watchlist + watched IDs so the grid can badge
+  // cards. 401 for logged-out users is swallowed — map stays empty, no badges.
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/user/watchlist?status=watchlist").then((r) =>
+        r.ok ? r.json() : { movies: [] },
+      ),
+      fetch("/api/user/watchlist?status=watched").then((r) =>
+        r.ok ? r.json() : { movies: [] },
+      ),
+    ])
+      .then(([wl, wd]) => {
+        const next = new Map<number, "watchlist" | "watched">();
+        for (const m of wl.movies ?? []) next.set(m.id, "watchlist");
+        // "watched" wins over "watchlist" if somehow both exist for a movie
+        for (const m of wd.movies ?? []) next.set(m.id, "watched");
+        setWatchlistStatusById(next);
       })
       .catch(() => {});
   }, []);
@@ -608,7 +637,11 @@ function MoviesPageInner() {
             />
           </div>
 
-          <MovieGrid movies={movies} loading={loading} />
+          <MovieGrid
+            movies={movies}
+            loading={loading}
+            watchlistStatusById={watchlistStatusById}
+          />
 
           {/* Skeleton loading cards while loading more */}
           {loadingMore && (
