@@ -2,10 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { MovieGrid } from "@/components/movie-grid";
-import { ListChecks, Eye } from "lucide-react";
 
 type Tab = "watchlist" | "watched";
 
+/**
+ * /watchlist — user's saved films.
+ *
+ * Editorial refresh: Fraunces masthead, small-caps tab pair (single-line
+ * tabs split by a thin rule, not pill-shaped segmented control), quiet
+ * empty states that match the "Not yet rated" pattern from the detail page.
+ */
 export default function WatchlistPage() {
   const [tab, setTab] = useState<Tab>("watchlist");
   const [movies, setMovies] = useState<unknown[]>([]);
@@ -28,51 +34,74 @@ export default function WatchlistPage() {
   }, [tab]);
 
   return (
-    <div className="container mx-auto px-4 max-w-7xl py-6">
-      <h1 className="text-2xl md:text-3xl font-bold mb-6">My Movies</h1>
+    <div className="container mx-auto px-4 sm:px-6 max-w-7xl py-10">
+      <header className="mb-10">
+        <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl leading-[0.95] tracking-tight">
+          My Films
+        </h1>
+        <p className="small-caps text-[11px] text-muted-foreground mt-2">
+          Saved for later · Seen so far
+        </p>
+      </header>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-lg bg-muted w-fit mb-8">
-        <button
+      {/* Tabs — a single rule with two underlined picks. No pill segmented
+          control (the SaaS tell). */}
+      <div
+        role="tablist"
+        aria-label="Watchlist sections"
+        className="flex items-center gap-8 mb-10 border-b border-border"
+      >
+        <TabButton
+          active={tab === "watchlist"}
           onClick={() => setTab("watchlist")}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === "watchlist"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <ListChecks className="h-4 w-4" />
-          To Watch
-          {!loading && tab !== "watchlist" && (
-            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
-              {movies.length}
-            </span>
-          )}
-        </button>
-        <button
+          label="To Watch"
+        />
+        <TabButton
+          active={tab === "watched"}
           onClick={() => setTab("watched")}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === "watched"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Eye className="h-4 w-4" />
-          Watched
-        </button>
+          label="Watched"
+        />
       </div>
 
-      <MovieGrid movies={movies} loading={loading} />
-
-      {!loading && movies.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
+      {loading || movies.length > 0 ? (
+        <MovieGrid movies={movies} loading={loading} />
+      ) : (
+        <div className="border border-dashed border-border bg-muted/30 p-10 text-center">
+          <h2 className="font-serif text-2xl">
+            {tab === "watchlist" ? "Nothing saved yet" : "Nothing marked yet"}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-3 max-w-sm mx-auto">
             {tab === "watchlist"
-              ? "Your watchlist is empty. Browse movies and add some!"
-              : "You haven't marked any movies as watched yet."}
+              ? "Tap the bookmark on any film to save it here for later."
+              : "Tap Mark Watched on a film's page to add it to this list."}
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`small-caps text-[12px] py-4 -mb-px border-b-2 transition-colors ${
+        active
+          ? "text-foreground border-primary"
+          : "text-muted-foreground border-transparent hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
