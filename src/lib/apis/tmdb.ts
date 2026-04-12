@@ -33,6 +33,7 @@ export interface TmdbMovieDetails {
   imdb_id: string | null;
   title: string;
   original_title: string;
+  original_language: string;
   overview: string;
   release_date: string;
   runtime: number | null;
@@ -49,6 +50,7 @@ export interface TmdbMovieDetails {
   tagline: string | null;
   homepage: string | null;
   production_companies: TmdbProductionCompany[];
+  production_countries: TmdbProductionCountry[];
   spoken_languages: TmdbSpokenLanguage[];
 }
 
@@ -62,6 +64,11 @@ export interface TmdbProductionCompany {
   name: string;
   logo_path: string | null;
   origin_country: string;
+}
+
+export interface TmdbProductionCountry {
+  iso_3166_1: string;
+  name: string;
 }
 
 export interface TmdbSpokenLanguage {

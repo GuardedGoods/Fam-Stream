@@ -18,6 +18,11 @@ import {
   and,
   exists,
 } from "drizzle-orm";
+import {
+  usOnlyCondition,
+  maxAlcoholDrugsCondition,
+  maxIntenseScenesCondition,
+} from "@/lib/filters/query";
 
 // The 7 streaming services we support
 const ALLOWED_PROVIDER_IDS = [8, 9, 337, 350, 384, 386, 531];
@@ -56,6 +61,9 @@ export async function GET(request: NextRequest) {
   const maxYear = searchParams.get("maxYear");
   const blockedWords = searchParams.get("blockedWords")?.split(",").filter(Boolean);
   const hideUnrated = searchParams.get("hideUnrated") === "true";
+  const usOnly = searchParams.get("usOnly") === "true";
+  const maxAlcoholDrugsScore = searchParams.get("maxAlcoholDrugsScore");
+  const maxIntenseScenesScore = searchParams.get("maxIntenseScenesScore");
   const sort = searchParams.get("sort") || "popularity";
   const sortDirection = searchParams.get("sortDirection") || "desc";
   const page = parseInt(searchParams.get("page") || "1");
@@ -90,6 +98,12 @@ export async function GET(request: NextRequest) {
     }
     if (maxYear) {
       conditions.push(lte(movies.releaseDate, `${maxYear}-12-31`));
+    }
+
+    // US-only filter — English-language + US production country. Scoped
+    // to the movies table so no content join is required.
+    if (usOnly) {
+      conditions.push(usOnlyCondition());
     }
 
     // Streaming service filter — applied as an EXISTS subquery so pagination is correct.
@@ -143,6 +157,24 @@ export async function GET(request: NextRequest) {
       const maxVal = parseInt(maxScaryScore);
       if (maxVal < 5) {
         conditions.push(lte(contentRatingsAggregated.scaryScore, maxVal));
+        needsContentJoin = true;
+      }
+    }
+
+    // Mature-themes: alcohol/drugs/smoking
+    if (maxAlcoholDrugsScore) {
+      const maxVal = parseInt(maxAlcoholDrugsScore);
+      if (maxVal < 5) {
+        conditions.push(maxAlcoholDrugsCondition(maxVal));
+        needsContentJoin = true;
+      }
+    }
+
+    // Mature-themes: frightening / intense scenes
+    if (maxIntenseScenesScore) {
+      const maxVal = parseInt(maxIntenseScenesScore);
+      if (maxVal < 5) {
+        conditions.push(maxIntenseScenesCondition(maxVal));
         needsContentJoin = true;
       }
     }

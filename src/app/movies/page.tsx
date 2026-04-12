@@ -39,9 +39,12 @@ const URL_FILTER_KEYS = [
   "maxViolenceScore",
   "maxSexualContentScore",
   "maxScaryScore",
+  "maxAlcoholDrugsScore",
+  "maxIntenseScenesScore",
   "streamingServices",
   "hideWatched",
   "hideUnrated",
+  "usOnly",
   "sort",
   "sortDirection",
   "minYear",
@@ -79,6 +82,16 @@ function parseFiltersFromURL(params: URLSearchParams): MovieFilters {
   const maxScaryScore = params.get("maxScaryScore");
   if (maxScaryScore !== null) filters.maxScaryScore = Number(maxScaryScore);
 
+  const maxAlcoholDrugsScore = params.get("maxAlcoholDrugsScore");
+  if (maxAlcoholDrugsScore !== null)
+    filters.maxAlcoholDrugsScore = Number(maxAlcoholDrugsScore);
+
+  const maxIntenseScenesScore = params.get("maxIntenseScenesScore");
+  if (maxIntenseScenesScore !== null)
+    filters.maxIntenseScenesScore = Number(maxIntenseScenesScore);
+
+  if (params.get("usOnly") === "true") filters.usOnly = true;
+
   const streamingServices = params.get("streamingServices");
   if (streamingServices) filters.streamingServices = streamingServices.split(",").map(Number);
 
@@ -113,10 +126,13 @@ function filtersToURLParams(filters: MovieFilters): URLSearchParams {
   if (filters.maxViolenceScore !== undefined) params.set("maxViolenceScore", String(filters.maxViolenceScore));
   if (filters.maxSexualContentScore !== undefined) params.set("maxSexualContentScore", String(filters.maxSexualContentScore));
   if (filters.maxScaryScore !== undefined) params.set("maxScaryScore", String(filters.maxScaryScore));
+  if (filters.maxAlcoholDrugsScore !== undefined) params.set("maxAlcoholDrugsScore", String(filters.maxAlcoholDrugsScore));
+  if (filters.maxIntenseScenesScore !== undefined) params.set("maxIntenseScenesScore", String(filters.maxIntenseScenesScore));
   if (filters.streamingServices?.length) params.set("streamingServices", filters.streamingServices.join(","));
   if (filters.blockedWords?.length) params.set("blockedWords", filters.blockedWords.join(","));
   if (filters.hideWatched) params.set("hideWatched", "true");
   if (filters.hideUnrated) params.set("hideUnrated", "true");
+  if (filters.usOnly) params.set("usOnly", "true");
   if (filters.sort && filters.sort !== "popularity") params.set("sort", filters.sort);
   if (filters.sortDirection && filters.sortDirection !== "desc") params.set("sortDirection", filters.sortDirection);
   if (filters.minYear !== undefined) params.set("minYear", String(filters.minYear));
@@ -138,10 +154,21 @@ function countActiveFilters(filters: MovieFilters): number {
   if (filters.maxViolenceScore !== undefined && filters.maxViolenceScore < 5) count++;
   if (filters.maxSexualContentScore !== undefined && filters.maxSexualContentScore < 5) count++;
   if (filters.maxScaryScore !== undefined && filters.maxScaryScore < 5) count++;
+  if (
+    filters.maxAlcoholDrugsScore !== undefined &&
+    filters.maxAlcoholDrugsScore < 5
+  )
+    count++;
+  if (
+    filters.maxIntenseScenesScore !== undefined &&
+    filters.maxIntenseScenesScore < 5
+  )
+    count++;
   if (filters.streamingServices?.length) count += filters.streamingServices.length;
   if (filters.blockedWords?.length) count += filters.blockedWords.length;
   if (filters.hideWatched) count++;
   if (filters.hideUnrated) count++;
+  if (filters.usOnly) count++;
   if (filters.minYear !== undefined) count++;
   if (filters.maxYear !== undefined) count++;
   return count;
@@ -220,6 +247,32 @@ function getActiveFilterChips(
     chips.push({
       label: `Scary \u2264 ${filters.maxScaryScore}`,
       onRemove: () => onFilterChange({ maxScaryScore: undefined }),
+    });
+  }
+  if (
+    filters.maxAlcoholDrugsScore !== undefined &&
+    filters.maxAlcoholDrugsScore < 5
+  ) {
+    chips.push({
+      label: `Alcohol/Drugs \u2264 ${filters.maxAlcoholDrugsScore}`,
+      onRemove: () => onFilterChange({ maxAlcoholDrugsScore: undefined }),
+    });
+  }
+  if (
+    filters.maxIntenseScenesScore !== undefined &&
+    filters.maxIntenseScenesScore < 5
+  ) {
+    chips.push({
+      label: `Intense Scenes \u2264 ${filters.maxIntenseScenesScore}`,
+      onRemove: () => onFilterChange({ maxIntenseScenesScore: undefined }),
+    });
+  }
+
+  // US-only region filter
+  if (filters.usOnly) {
+    chips.push({
+      label: "US market only",
+      onRemove: () => onFilterChange({ usOnly: false }),
     });
   }
 
@@ -362,12 +415,23 @@ function MoviesPageInner() {
         );
       if (filters.maxScaryScore !== undefined)
         params.set("maxScaryScore", String(filters.maxScaryScore));
+      if (filters.maxAlcoholDrugsScore !== undefined)
+        params.set(
+          "maxAlcoholDrugsScore",
+          String(filters.maxAlcoholDrugsScore),
+        );
+      if (filters.maxIntenseScenesScore !== undefined)
+        params.set(
+          "maxIntenseScenesScore",
+          String(filters.maxIntenseScenesScore),
+        );
       if (filters.streamingServices?.length)
         params.set("streamingServices", filters.streamingServices.join(","));
       if (filters.blockedWords?.length)
         params.set("blockedWords", filters.blockedWords.join(","));
       if (filters.hideWatched) params.set("hideWatched", "true");
       if (filters.hideUnrated) params.set("hideUnrated", "true");
+      if (filters.usOnly) params.set("usOnly", "true");
       if (filters.sort) params.set("sort", filters.sort);
       if (filters.sortDirection)
         params.set("sortDirection", filters.sortDirection);

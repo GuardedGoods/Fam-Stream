@@ -31,6 +31,13 @@ export const movies = sqliteTable(
     popularity: real('popularity'),
     genres: text('genres'), // JSON array of genre names
     aiSummary: text('ai_summary'),
+    /** ISO 639-1 language code of original production, e.g. "en", "hi", "ko". */
+    originalLanguage: text('original_language'),
+    /** JSON array of ISO 3166-1 country codes, e.g. ["US"], ["US","GB"]. */
+    productionCountries: text('production_countries'),
+    tagline: text('tagline'),
+    budget: integer('budget'),
+    revenue: integer('revenue'),
     lastSyncedAt: text('last_synced_at'),
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   },
@@ -86,10 +93,20 @@ export const contentRatingsAggregated = sqliteTable(
     violenceScore: integer('violence_score'), // 0-5 normalized
     sexualContentScore: integer('sexual_content_score'), // 0-5 normalized
     scaryScore: integer('scary_score'), // 0-5 normalized
+    /**
+     * Mature-themes dimensions — extracted from the IMDb Parental Guide
+     * scraper (alcohol/drugs/smoking, frightening/intense scenes). The
+     * scraper already pulled these per-category severity labels; we now
+     * persist the 0-5 normalized values so users can filter on them.
+     */
+    alcoholDrugsScore: integer('alcohol_drugs_score'), // 0-5 normalized
+    intenseScenesScore: integer('intense_scenes_score'), // 0-5 normalized
     languageNotes: text('language_notes'),
     violenceNotes: text('violence_notes'),
     sexualNotes: text('sexual_notes'),
     scaryNotes: text('scary_notes'),
+    alcoholDrugsNotes: text('alcohol_drugs_notes'),
+    intenseScenesNotes: text('intense_scenes_notes'),
     specificWords: text('specific_words'), // JSON array of specific words found
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },

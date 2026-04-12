@@ -33,6 +33,11 @@ function createTables(sqlite: InstanceType<typeof Database>): void {
       popularity REAL,
       genres TEXT,
       ai_summary TEXT,
+      original_language TEXT,
+      production_countries TEXT,
+      tagline TEXT,
+      budget INTEGER,
+      revenue INTEGER,
       last_synced_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -63,10 +68,14 @@ function createTables(sqlite: InstanceType<typeof Database>): void {
       violence_score INTEGER,
       sexual_content_score INTEGER,
       scary_score INTEGER,
+      alcohol_drugs_score INTEGER,
+      intense_scenes_score INTEGER,
       language_notes TEXT,
       violence_notes TEXT,
       sexual_notes TEXT,
       scary_notes TEXT,
+      alcohol_drugs_notes TEXT,
+      intense_scenes_notes TEXT,
       specific_words TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -168,6 +177,45 @@ function createTables(sqlite: InstanceType<typeof Database>): void {
   `);
 }
 
+/**
+ * Apply idempotent ALTER TABLE migrations for columns added after the
+ * initial schema shipped. Each statement is run in isolation and the
+ * "duplicate column" error is swallowed, so the migrations are safe to
+ * re-run on every boot. This is lightweight vs. a full drizzle-kit setup
+ * and matches the project's existing "tables created at startup" pattern.
+ *
+ * Any new ALTER TABLE for future phases should be appended here.
+ */
+function runMigrations(sqlite: InstanceType<typeof Database>): void {
+  const statements: string[] = [
+    // Phase 2B — movies metadata from TMDB detail responses
+    `ALTER TABLE movies ADD COLUMN original_language TEXT`,
+    `ALTER TABLE movies ADD COLUMN production_countries TEXT`,
+    `ALTER TABLE movies ADD COLUMN tagline TEXT`,
+    `ALTER TABLE movies ADD COLUMN budget INTEGER`,
+    `ALTER TABLE movies ADD COLUMN revenue INTEGER`,
+    // Phase 2B — mature-themes severity columns
+    `ALTER TABLE content_ratings_aggregated ADD COLUMN alcohol_drugs_score INTEGER`,
+    `ALTER TABLE content_ratings_aggregated ADD COLUMN intense_scenes_score INTEGER`,
+    `ALTER TABLE content_ratings_aggregated ADD COLUMN alcohol_drugs_notes TEXT`,
+    `ALTER TABLE content_ratings_aggregated ADD COLUMN intense_scenes_notes TEXT`,
+    // Index to keep the US-only filter fast
+    `CREATE INDEX IF NOT EXISTS movies_original_language_idx ON movies (original_language)`,
+  ];
+
+  for (const sql of statements) {
+    try {
+      sqlite.exec(sql);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Expected on re-run: column already present. Anything else is a bug.
+      if (!/duplicate column name/i.test(msg)) {
+        console.error(`[db migrations] ${sql} failed:`, err);
+      }
+    }
+  }
+}
+
 export function getDb(): BetterSQLite3Database<typeof schema> {
   if (!_db) {
     const dbPath = getDbPath();
@@ -183,8 +231,10 @@ export function getDb(): BetterSQLite3Database<typeof schema> {
     sqlite.pragma("foreign_keys = ON");
     sqlite.pragma("busy_timeout = 5000");
 
-    // Create tables if they don't exist
+    // Create tables if they don't exist (fresh install path), then apply
+    // any additive migrations (existing install path). Both idempotent.
     createTables(sqlite);
+    runMigrations(sqlite);
 
     _db = drizzle(sqlite, { schema });
   }

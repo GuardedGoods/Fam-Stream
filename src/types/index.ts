@@ -28,10 +28,14 @@ export interface AggregatedContentRating {
   violenceScore: number;
   sexualContentScore: number;
   scaryScore: number;
+  alcoholDrugsScore?: number | null;
+  intenseScenesScore?: number | null;
   languageNotes: string | null;
   violenceNotes: string | null;
   sexualNotes: string | null;
   scaryNotes: string | null;
+  alcoholDrugsNotes?: string | null;
+  intenseScenesNotes?: string | null;
   specificWords: string[];
 }
 
@@ -72,11 +76,17 @@ export interface MovieFilters {
   maxViolenceScore?: number;
   maxSexualContentScore?: number;
   maxScaryScore?: number;
+  /** Mature-themes: max acceptable alcohol/drugs/smoking severity (0-5). */
+  maxAlcoholDrugsScore?: number;
+  /** Mature-themes: max acceptable frightening/intense-scenes severity (0-5). */
+  maxIntenseScenesScore?: number;
   streamingServices?: number[];
   minYear?: number;
   maxYear?: number;
   hideWatched?: boolean;
   hideUnrated?: boolean;
+  /** When true: only return US-market / English-language productions. */
+  usOnly?: boolean;
   blockedWords?: string[];
   sort?: 'popularity' | 'release_date' | 'title' | 'imdb_rating' | 'rt_score';
   sortDirection?: 'asc' | 'desc';

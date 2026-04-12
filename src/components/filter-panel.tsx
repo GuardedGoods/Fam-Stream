@@ -104,6 +104,28 @@ function FilterContent({
 
       <Separator />
 
+      {/* Region */}
+      <div>
+        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+          Region
+        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="us-only" className="text-sm cursor-pointer">
+            US market only
+          </Label>
+          <Switch
+            id="us-only"
+            checked={currentFilters.usOnly ?? false}
+            onCheckedChange={(checked) => updateFilter({ usOnly: checked })}
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5">
+          Hides non-English, foreign-market productions.
+        </p>
+      </div>
+
+      <Separator />
+
       {/* Content Score Sliders */}
       <div>
         <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
@@ -186,6 +208,59 @@ function FilterContent({
             />
           </div>
         </div>
+      </div>
+
+      <Separator />
+
+      {/* Mature Themes — backed by IMDb Parental Guide severity columns.
+          Sliders map to 0-5 normalized (None=0, Mild=1, Moderate=3, Severe=5)
+          same as the 4 core sliders. Set to 5 = no filter applied. */}
+      <div>
+        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+          Mature Themes
+        </Label>
+        <div className="space-y-4">
+          {/* Alcohol / Drugs / Smoking */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Alcohol, Drugs &amp; Smoking</Label>
+              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+                {currentFilters.maxAlcoholDrugsScore ?? 5}
+              </span>
+            </div>
+            <Slider
+              min={0}
+              max={5}
+              step={1}
+              value={[currentFilters.maxAlcoholDrugsScore ?? 5]}
+              onValueChange={([val]) =>
+                updateFilter({ maxAlcoholDrugsScore: val })
+              }
+            />
+          </div>
+
+          {/* Frightening / Intense Scenes */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Frightening / Intense Scenes</Label>
+              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+                {currentFilters.maxIntenseScenesScore ?? 5}
+              </span>
+            </div>
+            <Slider
+              min={0}
+              max={5}
+              step={1}
+              value={[currentFilters.maxIntenseScenesScore ?? 5]}
+              onValueChange={([val]) =>
+                updateFilter({ maxIntenseScenesScore: val })
+              }
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Sourced from IMDb Parental Guide severity labels.
+        </p>
       </div>
 
       <Separator />

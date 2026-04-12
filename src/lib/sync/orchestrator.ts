@@ -257,12 +257,26 @@ async function syncMovies() {
       const currentMovie = db.select({ mpaaRating: movies.mpaaRating })
         .from(movies).where(eq(movies.id, movie.id)).get();
 
+      // Pull out production-country ISO codes (e.g. ["US", "GB"]). TMDB
+      // returns the full country objects; we only need the ISO code for
+      // filtering. Stored as JSON so we can `LIKE '%"US"%'` cheaply.
+      const productionCountries =
+        details.production_countries?.map((c) => c.iso_3166_1) ?? [];
+
       db.update(movies)
         .set({
           imdbId: details.imdb_id || null,
           runtimeMinutes: details.runtime || null,
           mpaaRating: currentMovie?.mpaaRating || certifications || null,
           genres: JSON.stringify(genreNames),
+          // Phase 2B enrichment — fields previously fetched and discarded.
+          originalLanguage: details.original_language || null,
+          productionCountries: productionCountries.length
+            ? JSON.stringify(productionCountries)
+            : null,
+          tagline: details.tagline || null,
+          budget: details.budget || null,
+          revenue: details.revenue || null,
         })
         .where(eq(movies.id, movie.id))
         .run();
@@ -488,6 +502,16 @@ export async function scrapeContentForMovie(movie: {
     scaryScore?: number;
   }> = [];
 
+  /**
+   * Mature-themes dimensions — only IMDb exposes these. Kept in a closure
+   * so we can pull them into the aggregated row below without polluting
+   * the cross-source `sources` array.
+   */
+  let imdbAlcoholDrugsScore: number | null = null;
+  let imdbIntenseScenesScore: number | null = null;
+  let imdbAlcoholDrugsNotes: string | null = null;
+  let imdbIntenseScenesNotes: string | null = null;
+
   // 1. Kids-In-Mind
   try {
     const kimData = await scrapeKidsInMind(movie.title, year);
@@ -574,6 +598,19 @@ export async function scrapeContentForMovie(movie: {
             imdbData.frighteningIntenseScenes.severity || "None"
           ),
         });
+
+        // Phase 2B: preserve IMDb's per-category severity for alcohol/drugs
+        // and frightening/intense-scenes as separate normalized 0-5 scores.
+        // The scraper already pulls these; we were throwing them away.
+        imdbAlcoholDrugsScore = normalizeImdbSeverity(
+          imdbData.alcoholDrugsSmoking.severity || "None",
+        );
+        imdbIntenseScenesScore = normalizeImdbSeverity(
+          imdbData.frighteningIntenseScenes.severity || "None",
+        );
+        imdbAlcoholDrugsNotes = imdbData.alcoholDrugsSmoking.notes || null;
+        imdbIntenseScenesNotes =
+          imdbData.frighteningIntenseScenes.notes || null;
       }
     } catch (e) {
       console.error(`IMDb scrape failed for ${movie.title}:`, e);
@@ -669,10 +706,15 @@ export async function scrapeContentForMovie(movie: {
       violenceScore: aggregated.violence,
       sexualContentScore: aggregated.sexual,
       scaryScore: aggregated.scary,
+      // Phase 2B — mature-themes columns. Null unless IMDb scrape succeeded.
+      alcoholDrugsScore: imdbAlcoholDrugsScore,
+      intenseScenesScore: imdbIntenseScenesScore,
       languageNotes: allLanguageNotes || null,
       violenceNotes: allViolenceNotes || null,
       sexualNotes: allSexualNotes || null,
       scaryNotes: allScaryNotes || null,
+      alcoholDrugsNotes: imdbAlcoholDrugsNotes,
+      intenseScenesNotes: imdbIntenseScenesNotes,
       specificWords: JSON.stringify(allWords),
       updatedAt: new Date().toISOString(),
     };
