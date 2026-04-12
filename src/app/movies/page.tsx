@@ -365,6 +365,26 @@ function MoviesPageInner() {
   const [watchlistStatusById, setWatchlistStatusById] = useState<
     Map<number, "watchlist" | "watched">
   >(new Map());
+
+  /**
+   * The signed-in user's subscribed streaming-provider IDs (server-side
+   * streamingProviders.id, the same ID the filter panel toggles use). Kept
+   * in state because (a) the filter panel renders a "subscribed" dot on
+   * matching tiles, and (b) the "Reset to my subscriptions" button snaps
+   * back to this list + the server-side content-threshold defaults.
+   */
+  const [subscribedProviderIds, setSubscribedProviderIds] = useState<number[]>(
+    [],
+  );
+  const [filterDefaults, setFilterDefaults] = useState<
+    Pick<
+      MovieFilters,
+      | "maxLanguageScore"
+      | "maxViolenceScore"
+      | "maxSexualContentScore"
+      | "maxScaryScore"
+    > | null
+  >(null);
   const initChecked = useRef(false);
 
   // Initialize filters from URL search params (supports back-button / refresh / sharing)
@@ -538,6 +558,84 @@ function MoviesPageInner() {
       .catch(() => {});
   }, []);
 
+  /**
+   * Phase 4B: fetch the user's saved defaults (subscribed services +
+   * content-threshold profile) on mount. If the URL has no filter
+   * query-params at all, seed the filters state from those defaults so
+   * the panel opens pre-populated. If the URL has ANY filter param, it's
+   * treated as an intentional link/share/override and defaults are only
+   * kept for the "Reset to my subscriptions" button.
+   *
+   * Runs once on mount — does not re-fire on filter changes.
+   */
+  useEffect(() => {
+    const urlHasAnyFilter = URL_FILTER_KEYS.some((k) =>
+      searchParams.has(k as string),
+    );
+
+    fetch("/api/user/filter-defaults")
+      .then((r) => (r.ok ? r.json() : { serviceProviderIds: [], profile: null }))
+      .then(
+        (data: {
+          serviceProviderIds: number[];
+          profile: {
+            maxLanguageScore?: number | null;
+            maxViolenceScore?: number | null;
+            maxSexualContentScore?: number | null;
+            maxScaryScore?: number | null;
+          } | null;
+        }) => {
+          setSubscribedProviderIds(data.serviceProviderIds ?? []);
+
+          const defaults = data.profile
+            ? {
+                maxLanguageScore: data.profile.maxLanguageScore ?? undefined,
+                maxViolenceScore: data.profile.maxViolenceScore ?? undefined,
+                maxSexualContentScore:
+                  data.profile.maxSexualContentScore ?? undefined,
+                maxScaryScore: data.profile.maxScaryScore ?? undefined,
+              }
+            : null;
+          setFilterDefaults(defaults);
+
+          // Only seed when the URL had no filter params at all, so
+          // deep-linked / shared URLs are respected.
+          if (
+            !urlHasAnyFilter &&
+            ((data.serviceProviderIds?.length ?? 0) > 0 || defaults)
+          ) {
+            setFilters((prev) => ({
+              ...prev,
+              ...(data.serviceProviderIds?.length
+                ? { streamingServices: data.serviceProviderIds }
+                : {}),
+              ...(defaults ?? {}),
+            }));
+          }
+        },
+      )
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * "Reset to my subscriptions" — snap filters back to the user's saved
+   * defaults. Clears per-search overrides (year, search, genres, etc.)
+   * too; that's the point of a reset.
+   */
+  const handleResetToDefaults = () => {
+    setFilters({
+      sort: filters.sort ?? "popularity",
+      sortDirection: filters.sortDirection ?? "desc",
+      page: 1,
+      limit: filters.limit ?? 24,
+      ...(subscribedProviderIds.length
+        ? { streamingServices: subscribedProviderIds }
+        : {}),
+      ...(filterDefaults ?? {}),
+    });
+  };
+
   const handleFilterChange = (newFilters: Partial<MovieFilters>) => {
     setMovies([]); // Reset movies when filters change
     setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
@@ -702,6 +800,12 @@ function MoviesPageInner() {
                 onFilterChange={handleFilterChange}
                 streamingProviders={providers}
                 genres={GENRES}
+                subscribedProviderIds={subscribedProviderIds}
+                onResetToDefaults={
+                  subscribedProviderIds.length > 0 || filterDefaults
+                    ? handleResetToDefaults
+                    : undefined
+                }
               />
             </div>
           </div>

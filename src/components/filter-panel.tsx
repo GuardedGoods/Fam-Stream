@@ -25,6 +25,19 @@ interface FilterPanelProps {
   onFilterChange: (filters: Partial<MovieFilters>) => void;
   streamingProviders: StreamingProvider[];
   genres: string[];
+  /**
+   * Provider IDs the signed-in user has marked as subscribed in Settings.
+   * Matching tiles get a small "subscribed" dot indicator so the user
+   * can tell which services are theirs at a glance, even when they've
+   * over-ridden the selection for the current search.
+   */
+  subscribedProviderIds?: number[];
+  /**
+   * When provided, renders a "Reset to my subscriptions" text button
+   * under the streaming-services row. Click snaps filter state back to
+   * whatever Settings says. Hidden when the user has no saved defaults.
+   */
+  onResetToDefaults?: () => void;
 }
 
 const MPAA_RATINGS = ["G", "PG", "PG-13", "R"];
@@ -34,7 +47,10 @@ function FilterContent({
   onFilterChange,
   streamingProviders,
   genres: genreNames,
+  subscribedProviderIds = [],
+  onResetToDefaults,
 }: FilterPanelProps) {
+  const subscribedSet = new Set(subscribedProviderIds);
   function updateFilter(updates: Partial<MovieFilters>) {
     onFilterChange({ ...currentFilters, ...updates });
   }
@@ -302,13 +318,20 @@ function FilterContent({
 
       <Separator />
 
-      {/* Streaming Services — logo tiles */}
+      {/* Streaming Services — logo tiles with subscribed-dot indicator */}
       {streamingProviders.length > 0 && (
         <>
           <div>
-            <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
-              Streaming Services
-            </Label>
+            <div className="flex items-baseline justify-between mb-3">
+              <Label className="small-caps text-[11px] text-muted-foreground">
+                Streaming Services
+              </Label>
+              {subscribedSet.size > 0 && (
+                <span className="small-caps text-[10px] text-muted-foreground">
+                  · Subscribed marked
+                </span>
+              )}
+            </div>
             <div
               className="grid grid-cols-4 gap-2"
               role="group"
@@ -318,6 +341,7 @@ function FilterContent({
                 const checked =
                   currentFilters.streamingServices?.includes(provider.id) ??
                   false;
+                const subscribed = subscribedSet.has(provider.id);
                 return (
                   <button
                     key={provider.id}
@@ -326,18 +350,18 @@ function FilterContent({
                       updateFilter({
                         streamingServices: toggleArrayItem(
                           currentFilters.streamingServices,
-                          provider.id
+                          provider.id,
                         ),
                       })
                     }
                     aria-pressed={checked}
-                    aria-label={provider.name}
-                    title={provider.name}
+                    aria-label={`${provider.name}${subscribed ? " (subscribed)" : ""}`}
+                    title={`${provider.name}${subscribed ? " — subscribed" : ""}`}
                     className={cn(
                       "relative aspect-square rounded-lg border-2 overflow-hidden transition-all",
                       checked
-                        ? "border-primary ring-2 ring-primary/40 scale-105"
-                        : "border-gray-200 dark:border-gray-700 opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
+                        ? "border-primary ring-2 ring-primary/40 scale-[1.03]"
+                        : "border-border opacity-60 grayscale hover:opacity-100 hover:grayscale-0",
                     )}
                   >
                     {provider.logoPath ? (
@@ -349,14 +373,32 @@ function FilterContent({
                         className="object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                      <div className="flex h-full w-full items-center justify-center bg-muted text-xs font-semibold text-muted-foreground">
                         {provider.name.substring(0, 2).toUpperCase()}
                       </div>
+                    )}
+                    {/* Subscribed dot — small primary-accent mark at top-right
+                        so the user can tell which services are theirs even
+                        when they've unchecked them for this search. */}
+                    {subscribed && (
+                      <span
+                        className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary ring-2 ring-background"
+                        aria-hidden="true"
+                      />
                     )}
                   </button>
                 );
               })}
             </div>
+            {onResetToDefaults && (
+              <button
+                type="button"
+                onClick={onResetToDefaults}
+                className="mt-3 small-caps text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Reset to my subscriptions
+              </button>
+            )}
           </div>
           <Separator />
         </>

@@ -98,6 +98,19 @@ export default function SettingsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ words: blockedWords }),
         }),
+        // Phase 4B: persist content-threshold sliders via the new
+        // filter-profile route so Browse can seed them on mount.
+        fetch("/api/user/filter-profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            maxLanguageScore: maxLanguage,
+            maxViolenceScore: maxViolence,
+            maxSexualContentScore: maxSexual,
+            maxScaryScore: maxScary,
+            maxMpaa,
+          }),
+        }),
       ]);
       setMessage("Saved");
       setTimeout(() => setMessage(""), 3000);
