@@ -71,6 +71,14 @@ export function NavBar({ onSearch }: NavBarProps = {}) {
           </Link>
           {user && (
             <Link
+              href="/recommendations"
+              className="small-caps text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              For You
+            </Link>
+          )}
+          {user && (
+            <Link
               href="/watchlist"
               className="small-caps text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -185,6 +193,15 @@ export function NavBar({ onSearch }: NavBarProps = {}) {
             >
               Browse
             </Link>
+            {user && (
+              <Link
+                href="/recommendations"
+                onClick={() => setMobileMenuOpen(false)}
+                className="font-serif text-2xl text-foreground py-2"
+              >
+                For You
+              </Link>
+            )}
             {user && (
               <Link
                 href="/watchlist"

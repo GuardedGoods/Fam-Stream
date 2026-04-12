@@ -17,10 +17,20 @@ import { authConfig } from "@/lib/auth/config";
 const { auth: authProxy } = NextAuth(authConfig);
 
 // Routes that require authentication (redirect to sign-in page)
-const protectedPagePrefixes = ["/watchlist", "/settings", "/admin"];
+const protectedPagePrefixes = [
+  "/watchlist",
+  "/settings",
+  "/admin",
+  "/recommendations",
+];
 
 // API routes that require authentication (return 401)
-const protectedApiPrefixes = ["/api/user/", "/api/sync"];
+const protectedApiPrefixes = [
+  "/api/user/",
+  "/api/sync",
+  "/api/recommendations",
+  "/api/admin",
+];
 
 export const proxy = authProxy((req) => {
   const { pathname } = req.nextUrl;
@@ -64,7 +74,10 @@ export const config = {
     "/watchlist/:path*",
     "/settings/:path*",
     "/admin/:path*",
+    "/recommendations/:path*",
     "/api/user/:path*",
     "/api/sync/:path*",
+    "/api/recommendations/:path*",
+    "/api/admin/:path*",
   ],
 };

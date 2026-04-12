@@ -77,10 +77,17 @@ describe("proxy (Next.js 16 middleware)", () => {
   it("matcher includes every protected route prefix we depend on", async () => {
     const mod = await import("../proxy");
     const matcher = mod.config.matcher;
+    // Phase 1 protected pages
     expect(matcher).toContain("/watchlist/:path*");
     expect(matcher).toContain("/settings/:path*");
     expect(matcher).toContain("/admin/:path*");
+    // Phase 4D
+    expect(matcher).toContain("/recommendations/:path*");
+    // Phase 1 protected APIs
     expect(matcher).toContain("/api/user/:path*");
     expect(matcher).toContain("/api/sync/:path*");
+    // Phase 4A/4D
+    expect(matcher).toContain("/api/recommendations/:path*");
+    expect(matcher).toContain("/api/admin/:path*");
   });
 });

@@ -310,6 +310,22 @@ export const blockedWords = sqliteTable('blocked_words', {
 });
 
 // ---------------------------------------------------------------------------
+// Recommendation Cache — AI-picked movies per user, refreshed every 24h.
+// Phase 4D populates this via the OpenAI client; the `/recommendations`
+// page serves from here to keep response latency + cost low.
+// ---------------------------------------------------------------------------
+export const recommendationCache = sqliteTable("recommendation_cache", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** JSON: [{ movieId, reason: string }, ...]. Shape validated on read. */
+  picksJson: text("picks_json").notNull(),
+  pickedAt: text("picked_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ---------------------------------------------------------------------------
 // User Filter Profiles – per-user filter preferences
 // ---------------------------------------------------------------------------
 export const userFilterProfiles = sqliteTable('user_filter_profiles', {

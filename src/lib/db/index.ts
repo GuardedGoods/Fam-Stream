@@ -175,6 +175,12 @@ function createTables(sqlite: InstanceType<typeof Database>): void {
       word TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS recommendation_cache (
+      user_id TEXT PRIMARY KEY REFERENCES users(id),
+      picks_json TEXT NOT NULL,
+      picked_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS user_filter_profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL REFERENCES users(id),
@@ -230,6 +236,12 @@ function runMigrations(sqlite: InstanceType<typeof Database>): void {
       UNIQUE(movie_id, tmdb_person_id, crew_job)
     )`,
     `CREATE INDEX IF NOT EXISTS movie_cast_movie_idx ON movie_cast (movie_id, cast_order)`,
+    // Phase 4D — AI recommendation cache table (per-user).
+    `CREATE TABLE IF NOT EXISTS recommendation_cache (
+      user_id TEXT PRIMARY KEY REFERENCES users(id),
+      picks_json TEXT NOT NULL,
+      picked_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
   ];
 
   for (const sql of statements) {
