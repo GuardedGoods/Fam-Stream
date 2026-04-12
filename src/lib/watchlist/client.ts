@@ -22,6 +22,23 @@ const ENDPOINT = "/api/user/watchlist";
  * client helper now routes there when appropriate so components can
  * stay agnostic about the URL shape.
  */
+/**
+ * Read the `details` field out of the API's JSON error body if present, so
+ * the component's inline error surface shows something actionable like
+ * "FOREIGN KEY constraint failed" instead of a generic "500".
+ */
+async function readErrorDetail(res: Response): Promise<string> {
+  try {
+    const body = (await res.clone().json()) as {
+      error?: string;
+      details?: string;
+    };
+    return body.details || body.error || "";
+  } catch {
+    return "";
+  }
+}
+
 export async function updateWatchlistStatus(
   movieId: number,
   newStatus: WatchlistStatus,
@@ -33,8 +50,10 @@ export async function updateWatchlistStatus(
       body: JSON.stringify({ movieId }),
     });
     if (!res.ok) {
+      const detail = await readErrorDetail(res);
+      const suffix = detail ? ` — ${detail}` : "";
       throw new Error(
-        `Failed to remove from watchlist: ${res.status} ${res.statusText}`,
+        `Failed to remove from watchlist: ${res.status}${suffix}`,
       );
     }
     return;
@@ -47,8 +66,8 @@ export async function updateWatchlistStatus(
   });
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to update watchlist: ${res.status} ${res.statusText}`,
-    );
+    const detail = await readErrorDetail(res);
+    const suffix = detail ? ` — ${detail}` : "";
+    throw new Error(`Failed to update watchlist: ${res.status}${suffix}`);
   }
 }

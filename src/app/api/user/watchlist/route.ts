@@ -1,8 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { userMovies, movies, contentRatingsAggregated } from "@/lib/db/schema";
+import {
+  userMovies,
+  movies,
+  contentRatingsAggregated,
+  users,
+} from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+
+/**
+ * Ensure the signed-in user has a row in the `users` table before we try to
+ * insert a row that FK-references it. With JWT strategy + Drizzle adapter,
+ * there are edge cases (stale JWTs from before the adapter was wired, race
+ * conditions, /dev DB wipe without re-login) where session.user.id is set
+ * but no matching row exists. Without this upsert the userMovies insert
+ * throws "FOREIGN KEY constraint failed" → 500.
+ *
+ * Idempotent: ON CONFLICT DO NOTHING means an existing user row is left
+ * alone (name/email/image stay whatever the adapter stored on first sign-in).
+ */
+function ensureUserRow(session: {
+  user?: { id?: string; email?: string | null; name?: string | null; image?: string | null };
+}): void {
+  const id = session.user?.id;
+  if (!id) return;
+  db.insert(users)
+    .values({
+      id,
+      email: session.user?.email ?? null,
+      name: session.user?.name ?? null,
+      image: session.user?.image ?? null,
+    })
+    .onConflictDoNothing()
+    .run();
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -90,6 +122,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Defensive FK guard — see ensureUserRow() comment above.
+    ensureUserRow(session);
+
     // Upsert
     const existing = db
       .select()
@@ -124,9 +159,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Failed to update watchlist:", error);
+    // Return the actual DB/runtime error message so the client-side inline
+    // error surface can display it — makes diagnosing future failures
+    // one-click instead of "check the server logs".
     return NextResponse.json(
-      { error: "Failed to update watchlist" },
+      { error: "Failed to update watchlist", details: message },
       { status: 500 }
     );
   }
@@ -152,9 +191,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Failed to remove from watchlist:", error);
     return NextResponse.json(
-      { error: "Failed to remove from watchlist" },
+      { error: "Failed to remove from watchlist", details: message },
       { status: 500 }
     );
   }
