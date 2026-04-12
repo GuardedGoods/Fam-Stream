@@ -39,10 +39,13 @@ export function SortBar({
 
   return (
     <div
-      className={`flex items-center gap-2 ${className ?? ""}`}
+      className={`flex items-center gap-2 min-w-0 ${className ?? ""}`}
       aria-label="Sort controls"
     >
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      {/* "Sort" label is redundant on mobile where the dropdown speaks for
+          itself. Hidden below sm so the select + direction button fit
+          comfortably on narrow viewports. */}
+      <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         Sort
       </span>
       <Select
@@ -54,7 +57,7 @@ export function SortBar({
           })
         }
       >
-        <SelectTrigger className="h-9 w-[160px]">
+        <SelectTrigger className="h-9 w-full sm:w-[160px] min-w-0">
           <SelectValue placeholder="Sort by..." />
         </SelectTrigger>
         <SelectContent>

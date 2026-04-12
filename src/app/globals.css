@@ -86,10 +86,33 @@
   border-color: var(--border);
 }
 
+html,
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, sans-serif;
+  /* Block horizontal scroll / rubber-band on iOS Safari. Any child that
+     overflows the viewport was a bug, so fail loud rather than scroll. */
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body {
+  /* Respect iPhone notch / Dynamic Island / home indicator when the browser
+     chrome is hidden (added-to-home-screen standalone mode). Left/right
+     insets padded so no content sits under rounded-corner cutouts. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* iOS taps feel snappier without the 300ms double-tap-zoom delay. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Make every interactive element snappier on touch. */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
 }
 
 ::-webkit-scrollbar {

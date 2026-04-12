@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
 import { SessionProvider } from "@/components/session-provider";
@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   description:
     "A family-first streaming guide that filters movies based on your parental guidelines. Find age-appropriate movies across all your streaming services.",
   keywords: ["family movies", "content filter", "parental guide", "streaming"],
+};
+
+/**
+ * `viewportFit: "cover"` extends the page under iOS notch / home-indicator
+ * areas. globals.css pads the body with `env(safe-area-inset-*)` so nothing
+ * is actually obscured — this just means the background runs edge-to-edge.
+ * `maximumScale: 1` stops iOS from zooming the page when a text input is
+ * focused (a UX annoyance on forms like the search bar).
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

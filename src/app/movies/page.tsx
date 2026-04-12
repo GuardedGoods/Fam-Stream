@@ -257,17 +257,14 @@ function getActiveFilterChips(
     });
   }
 
-  // Blocked words
+  // Blocked words — collapsed into a single chip so we never enumerate
+  // them verbatim in the UI (user request). Click the X to clear all.
   if (filters.blockedWords?.length) {
-    for (const word of filters.blockedWords) {
-      chips.push({
-        label: `Block: ${word}`,
-        onRemove: () =>
-          onFilterChange({
-            blockedWords: filters.blockedWords?.filter((w) => w !== word),
-          }),
-      });
-    }
+    const n = filters.blockedWords.length;
+    chips.push({
+      label: `${n} blocked word${n === 1 ? "" : "s"}`,
+      onRemove: () => onFilterChange({ blockedWords: [] }),
+    });
   }
 
   // Boolean toggles
@@ -527,39 +524,57 @@ function MoviesPageInner() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Browse Movies</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      {/* Header — compact stacked layout on mobile, inline row on sm+. */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
+            Browse Movies
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
             {total > 0
-              ? `${total} movies found`
+              ? `${total.toLocaleString()} movies found`
               : loading
                 ? "Loading..."
                 : "No movies found"}
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="flex-1 sm:w-72">
+        <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+          <div className="flex-1 sm:w-72 min-w-0">
             <SearchBar onSearch={handleSearch} initialValue={filters.search} />
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors md:hidden"
+            /* h-11 gives a 44px tap target (iOS HIG); shrink-0 keeps it on
+               the same row as the search bar on phones. */
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border h-11 px-3 text-sm font-medium hover:bg-accent transition-colors md:hidden"
+            aria-label={
+              showFilters
+                ? "Close filters"
+                : activeFilterCount > 0
+                  ? `Open filters (${activeFilterCount} active)`
+                  : "Open filters"
+            }
           >
             {showFilters ? (
               <X className="h-4 w-4" />
             ) : (
               <SlidersHorizontal className="h-4 w-4" />
             )}
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            <span className="hidden xs:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Active filter chips */}
+      {/* Active filter chips — desktop only. On mobile the "Filters (N)"
+          button already surfaces the count, and the chip row was taking
+          over the whole viewport on phones. */}
       {filterChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="hidden md:flex flex-wrap items-center gap-2 mb-4">
           {filterChips.map((chip, i) => (
             <span
               key={`${chip.label}-${i}`}
@@ -628,12 +643,14 @@ function MoviesPageInner() {
 
         {/* Movie grid */}
         <div className="flex-1 min-w-0">
-          {/* Sort bar — lives on the page, not inside the filter panel */}
+          {/* Sort bar — full-width on mobile so the dropdown is comfortable
+              to tap, right-aligned inline on sm+. */}
           <div className="flex items-center justify-end mb-4">
             <SortBar
               sort={filters.sort}
               sortDirection={filters.sortDirection}
               onChange={handleFilterChange}
+              className="w-full sm:w-auto"
             />
           </div>
 
