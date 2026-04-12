@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { MovieGrid } from "@/components/movie-grid";
 import { FilterPanel } from "@/components/filter-panel";
+import { SortBar } from "@/components/sort-bar";
 import { SearchBar } from "@/components/search-bar";
 import { SlidersHorizontal, X, RefreshCw } from "lucide-react";
 import type { MovieFilters } from "@/types";
@@ -598,6 +599,15 @@ function MoviesPageInner() {
 
         {/* Movie grid */}
         <div className="flex-1 min-w-0">
+          {/* Sort bar — lives on the page, not inside the filter panel */}
+          <div className="flex items-center justify-end mb-4">
+            <SortBar
+              sort={filters.sort}
+              sortDirection={filters.sortDirection}
+              onChange={handleFilterChange}
+            />
+          </div>
+
           <MovieGrid movies={movies} loading={loading} />
 
           {/* Skeleton loading cards while loading more */}

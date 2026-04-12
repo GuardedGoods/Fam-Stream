@@ -19,7 +19,9 @@ vi.mock("@/lib/db/schema", () => ({
 }));
 
 // Capture the arguments NextAuth was constructed with.
-const nextAuthSpy = vi.fn(() => ({
+// Note the explicit `_cfg: unknown` — it makes `mock.calls[0][0]` typed
+// instead of `never`, so the later `as {...}` casts type-check under tsc.
+const nextAuthSpy = vi.fn((_cfg: unknown) => ({
   handlers: {},
   auth: vi.fn(),
   signIn: vi.fn(),

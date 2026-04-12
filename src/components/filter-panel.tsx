@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowDownNarrowWide, ArrowUpNarrowWide, RotateCcw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { RotateCcw } from "lucide-react";
+import { cn, getImageUrl } from "@/lib/utils";
 import { maskProfanity } from "@/lib/filters/mask";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,18 +12,12 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { SearchBar } from "@/components/search-bar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { MovieFilters } from "@/types";
 
 interface StreamingProvider {
   id: number;
   name: string;
+  logoPath?: string | null;
 }
 
 interface FilterPanelProps {
@@ -33,14 +28,6 @@ interface FilterPanelProps {
 }
 
 const MPAA_RATINGS = ["G", "PG", "PG-13", "R"];
-
-const SORT_OPTIONS = [
-  { value: "popularity", label: "Popularity" },
-  { value: "imdb_rating", label: "Rating" },
-  { value: "rt_score", label: "Rotten Tomatoes" },
-  { value: "release_date", label: "Release Date" },
-  { value: "title", label: "Title" },
-] as const;
 
 function FilterContent({
   currentFilters,
@@ -240,39 +227,58 @@ function FilterContent({
 
       <Separator />
 
-      {/* Streaming Services */}
+      {/* Streaming Services — logo tiles */}
       {streamingProviders.length > 0 && (
         <>
           <div>
             <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
               Streaming Services
             </Label>
-            <div className="flex flex-wrap gap-3">
+            <div
+              className="grid grid-cols-4 gap-2"
+              role="group"
+              aria-label="Filter by streaming service"
+            >
               {streamingProviders.map((provider) => {
                 const checked =
                   currentFilters.streamingServices?.includes(provider.id) ??
                   false;
                 return (
-                  <div key={provider.id} className="flex items-center gap-1.5">
-                    <Checkbox
-                      id={`provider-${provider.id}`}
-                      checked={checked}
-                      onCheckedChange={() =>
-                        updateFilter({
-                          streamingServices: toggleArrayItem(
-                            currentFilters.streamingServices,
-                            provider.id
-                          ),
-                        })
-                      }
-                    />
-                    <Label
-                      htmlFor={`provider-${provider.id}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      {provider.name}
-                    </Label>
-                  </div>
+                  <button
+                    key={provider.id}
+                    type="button"
+                    onClick={() =>
+                      updateFilter({
+                        streamingServices: toggleArrayItem(
+                          currentFilters.streamingServices,
+                          provider.id
+                        ),
+                      })
+                    }
+                    aria-pressed={checked}
+                    aria-label={provider.name}
+                    title={provider.name}
+                    className={cn(
+                      "relative aspect-square rounded-lg border-2 overflow-hidden transition-all",
+                      checked
+                        ? "border-primary ring-2 ring-primary/40 scale-105"
+                        : "border-gray-200 dark:border-gray-700 opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
+                    )}
+                  >
+                    {provider.logoPath ? (
+                      <Image
+                        src={getImageUrl(provider.logoPath, "w92")}
+                        alt=""
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        {provider.name.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
                 );
               })}
             </div>
@@ -369,60 +375,6 @@ function FilterContent({
           <Separator />
         </>
       )}
-
-      {/* Sort */}
-      <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 block">
-          Sort By
-        </Label>
-        <div className="flex items-center gap-2">
-          <Select
-            value={currentFilters.sort ?? "popularity"}
-            onValueChange={(val) =>
-              updateFilter({
-                sort: val as MovieFilters["sort"],
-              })
-            }
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() =>
-              updateFilter({
-                sortDirection:
-                  (currentFilters.sortDirection ?? "desc") === "desc"
-                    ? "asc"
-                    : "desc",
-              })
-            }
-            aria-label={
-              (currentFilters.sortDirection ?? "desc") === "desc"
-                ? "Sort descending"
-                : "Sort ascending"
-            }
-          >
-            {(currentFilters.sortDirection ?? "desc") === "desc" ? (
-              <ArrowDownNarrowWide className="h-4 w-4" />
-            ) : (
-              <ArrowUpNarrowWide className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </div>
-
-      <Separator />
 
       {/* Toggles */}
       <div className="space-y-3">
