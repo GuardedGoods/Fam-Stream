@@ -1,6 +1,20 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { authConfig } from "@/lib/auth/config";
+
+/**
+ * Edge-safe Auth.js v5 instance for use in the Next.js 16 proxy (renamed
+ * from `middleware` in Next 16). Initialized with only the JWT-aware
+ * config — no DB adapter — because this file runs in the Edge runtime.
+ *
+ * The resulting `auth()` wrapper decodes the v5 session cookie using the
+ * correct name (`__Secure-authjs.session-token` over HTTPS, plain
+ * `authjs.session-token` over HTTP) and exposes the session on `req.auth`.
+ * The v4-era `getToken()` helper this file previously used did NOT find
+ * the cookie under an HTTPS reverse proxy, which broke /watchlist and
+ * every /api/user/* call for logged-in users.
+ */
+const { auth: authProxy } = NextAuth(authConfig);
 
 // Routes that require authentication (redirect to sign-in page)
 const protectedPagePrefixes = ["/watchlist", "/settings", "/admin"];
@@ -8,7 +22,7 @@ const protectedPagePrefixes = ["/watchlist", "/settings", "/admin"];
 // API routes that require authentication (return 401)
 const protectedApiPrefixes = ["/api/user/", "/api/sync"];
 
-export async function proxy(req: NextRequest) {
+export const proxy = authProxy((req) => {
   const { pathname } = req.nextUrl;
 
   // Allow public endpoints
@@ -16,29 +30,23 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if route needs protection
   const isProtectedPage = protectedPagePrefixes.some((prefix) =>
-    pathname.startsWith(prefix)
+    pathname.startsWith(prefix),
   );
   const isProtectedApi = protectedApiPrefixes.some((prefix) =>
-    pathname.startsWith(prefix)
+    pathname.startsWith(prefix),
   );
 
   if (!isProtectedPage && !isProtectedApi) {
     return NextResponse.next();
   }
 
-  // Check JWT token (works in Edge Runtime - no DB access needed)
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-  });
-  const isAuthenticated = !!token;
+  const isAuthenticated = !!req.auth;
 
   if (isProtectedApi && !isAuthenticated) {
     return NextResponse.json(
       { error: "Authentication required" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -49,7 +57,7 @@ export async function proxy(req: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [

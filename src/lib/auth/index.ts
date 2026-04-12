@@ -1,5 +1,4 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
 import {
@@ -8,17 +7,18 @@ import {
   sessions,
   verificationTokens,
 } from "@/lib/db/schema";
+import { authConfig } from "./config";
 
-function parseAdminEmails(): Set<string> {
-  return new Set(
-    (process.env.ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
-
+/**
+ * Full (Node runtime) Auth.js configuration: the Edge-safe base config
+ * from `./config` plus the Drizzle adapter, which handles OAuth account
+ * linking against our SQLite users/accounts/sessions tables. The adapter
+ * can't run in Edge because better-sqlite3 is native, so this instance
+ * is only safe to import from server components, API routes, and
+ * server actions — never from `src/proxy.ts`.
+ */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   // The @auth/drizzle-adapter types model emailVerified as a JS Date, but
   // SQLite stores it as an integer epoch — Drizzle's column type therefore
   // doesn't satisfy the adapter's strict type. The runtime behaviour is
@@ -30,38 +30,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verificationTokensTable: verificationTokens,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any),
-  providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
-  ],
-  session: {
-    strategy: "jwt",
-  },
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      if (token.email) {
-        token.isAdmin = parseAdminEmails().has(
-          token.email.toLowerCase(),
-        );
-      }
-      return token;
-    },
-    session({ session, token }) {
-      if (session.user && token.id) {
-        session.user.id = token.id as string;
-      }
-      if (session.user) {
-        session.user.isAdmin = Boolean(token.isAdmin);
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/auth/signin",
-  },
 });
