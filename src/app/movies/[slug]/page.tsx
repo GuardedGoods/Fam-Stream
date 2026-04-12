@@ -10,6 +10,7 @@ import {
 import { ContentBadge } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
 import { WatchlistButton } from "@/components/watchlist-button";
+import { MovieCast, type CastRow } from "@/components/movie-cast";
 import { getImageUrl, getYear, formatRuntime } from "@/lib/utils";
 import { maskProfanity } from "@/lib/filters/mask";
 import type { StreamingProviderInfo } from "@/types";
@@ -20,8 +21,9 @@ import {
   contentRatingsAggregated,
   movieProviders,
   streamingProviders,
+  movieCast,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { getUserMovieStatus } from "@/lib/watchlist/server";
 
 function getMovie(slug: string) {
@@ -59,6 +61,26 @@ function getMovie(slug: string) {
       eq(movieProviders.providerId, streamingProviders.id)
     )
     .where(eq(movieProviders.movieId, movie.id))
+    .all();
+
+  // Phase 4C — pull cast + director/writers. Cast sorted by billing order
+  // (lead first), crew trails regardless of order. Upstream write ordering
+  // guarantees the uniqueness guard so we just pull and pass through.
+  const castRows = db
+    .select({
+      name: movieCast.name,
+      character: movieCast.character,
+      profilePath: movieCast.profilePath,
+      castOrder: movieCast.castOrder,
+      isCrew: movieCast.isCrew,
+      crewJob: movieCast.crewJob,
+    })
+    .from(movieCast)
+    .where(eq(movieCast.movieId, movie.id))
+    .orderBy(
+      asc(movieCast.isCrew),
+      sql`CASE WHEN ${movieCast.castOrder} IS NULL THEN 999 ELSE ${movieCast.castOrder} END ASC`,
+    )
     .all();
 
   // Parse specificWords — supports both old format (string[]) and new format ({word: count})
@@ -121,6 +143,14 @@ function getMovie(slug: string) {
       sourceUrl: s.sourceUrl,
     })),
     streamingProviders: providers as StreamingProviderInfo[],
+    cast: castRows.map((row) => ({
+      name: row.name,
+      character: row.character,
+      profilePath: row.profilePath,
+      castOrder: row.castOrder,
+      isCrew: row.isCrew ?? 0,
+      crewJob: row.crewJob,
+    })) as CastRow[],
   };
 }
 
@@ -392,6 +422,9 @@ export default async function MovieDetailPage({
             </div>
           )}
         </section>
+
+        {/* Cast & Crew — editorial strip, director line above */}
+        <MovieCast cast={movie.cast} />
 
         {/* Where to Watch */}
         {movie.streamingProviders && movie.streamingProviders.length > 0 && (

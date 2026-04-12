@@ -88,6 +88,19 @@ function createTables(sqlite: InstanceType<typeof Database>): void {
       display_priority INTEGER DEFAULT 999
     );
 
+    CREATE TABLE IF NOT EXISTS movie_cast (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      movie_id INTEGER NOT NULL REFERENCES movies(id),
+      tmdb_person_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      character TEXT,
+      profile_path TEXT,
+      cast_order INTEGER,
+      is_crew INTEGER DEFAULT 0,
+      crew_job TEXT,
+      UNIQUE(movie_id, tmdb_person_id, crew_job)
+    );
+
     CREATE TABLE IF NOT EXISTS movie_providers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       movie_id INTEGER NOT NULL REFERENCES movies(id),
@@ -201,6 +214,22 @@ function runMigrations(sqlite: InstanceType<typeof Database>): void {
     `ALTER TABLE content_ratings_aggregated ADD COLUMN intense_scenes_notes TEXT`,
     // Index to keep the US-only filter fast
     `CREATE INDEX IF NOT EXISTS movies_original_language_idx ON movies (original_language)`,
+    // Phase 4C — movie_cast table. Create if missing (for DBs that
+    // predate the addition). Plus index on (movie_id, cast_order) so the
+    // detail-page query is cheap.
+    `CREATE TABLE IF NOT EXISTS movie_cast (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      movie_id INTEGER NOT NULL REFERENCES movies(id),
+      tmdb_person_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      character TEXT,
+      profile_path TEXT,
+      cast_order INTEGER,
+      is_crew INTEGER DEFAULT 0,
+      crew_job TEXT,
+      UNIQUE(movie_id, tmdb_person_id, crew_job)
+    )`,
+    `CREATE INDEX IF NOT EXISTS movie_cast_movie_idx ON movie_cast (movie_id, cast_order)`,
   ];
 
   for (const sql of statements) {

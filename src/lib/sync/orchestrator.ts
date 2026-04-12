@@ -5,15 +5,18 @@ import {
   contentRatingsAggregated,
   movieProviders,
   streamingProviders,
+  movieCast,
 } from "@/lib/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import {
   discoverMovies,
   getMovieDetails,
   getMovieCertifications,
+  getMovieCredits,
   getWatchProviders,
   generateSlug,
 } from "@/lib/apis/tmdb";
+import { mapCreditsToRows } from "./credits-mapper";
 import { getMovieByImdbId } from "@/lib/apis/omdb";
 import { scrapeKidsInMind } from "@/lib/scrapers/kids-in-mind";
 import { scrapeImdbParentalGuide } from "@/lib/scrapers/imdb-parental";
@@ -308,6 +311,14 @@ async function syncMovies() {
         console.error(`Watch providers error for ${movie.title}:`, e);
       }
 
+      // Phase 4C — fetch cast & top crew. Isolated try/catch so a credits
+      // failure doesn't block OMDb scores or watch providers from persisting.
+      try {
+        await syncMovieCast(movie.id, movie.tmdbId);
+      } catch (e) {
+        console.error(`Cast enrichment error for ${movie.title}:`, e);
+      }
+
       enriched++;
       if (enriched % 20 === 0) {
         console.log(`Phase 2: enriched ${enriched}/${moviesToEnrich.length}`);
@@ -379,6 +390,38 @@ async function populateMpaaRatings() {
 
 // Only store data for these 7 streaming services
 const ALLOWED_PROVIDER_IDS = new Set([8, 9, 337, 350, 384, 386, 531]);
+
+/**
+ * Fetch TMDB /movie/{id}/credits, map to `movie_cast` rows via the pure
+ * mapper, and upsert. Wipes the movie's existing cast rows first so a
+ * credits refresh stays in sync with upstream (TMDB occasionally
+ * reorders or drops entries).
+ */
+async function syncMovieCast(movieRowId: number, tmdbId: number) {
+  const credits = await getMovieCredits(tmdbId);
+  const rows = mapCreditsToRows(credits);
+  if (rows.length === 0) return;
+
+  // Replace strategy — simpler than upsert-diff and this runs per-movie
+  // inside an otherwise-rare Phase 2 enrichment pass.
+  db.delete(movieCast).where(eq(movieCast.movieId, movieRowId)).run();
+
+  for (const row of rows) {
+    try {
+      db.insert(movieCast)
+        .values({ movieId: movieRowId, ...row })
+        .run();
+    } catch (e) {
+      // Unique index collision (same person, same job, same movie) is
+      // safe to ignore — means we already inserted this credit on a
+      // prior row in the same batch.
+      const msg = e instanceof Error ? e.message : "";
+      if (!/unique/i.test(msg)) {
+        console.error(`[syncMovieCast] insert failed:`, e);
+      }
+    }
+  }
+}
 
 async function syncMovieProviders(tmdbId: number) {
   const providers = await getWatchProviders(tmdbId);

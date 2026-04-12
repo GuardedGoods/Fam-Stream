@@ -133,6 +133,38 @@ export const streamingProviders = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// Movie Cast & Crew — top-N cast + director/writers per movie
+// Populated from TMDB /movie/{id}/credits in Phase 2 enrichment.
+// ---------------------------------------------------------------------------
+export const movieCast = sqliteTable(
+  "movie_cast",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    movieId: integer("movie_id")
+      .notNull()
+      .references(() => movies.id, { onDelete: "cascade" }),
+    tmdbPersonId: integer("tmdb_person_id").notNull(),
+    name: text("name").notNull(),
+    /** Character name for cast members; empty for crew. */
+    character: text("character"),
+    profilePath: text("profile_path"),
+    /** 0-based cast billing order (0 = lead). Nullable for crew. */
+    castOrder: integer("cast_order"),
+    /** 1 for crew rows (director, writers), 0 for cast. */
+    isCrew: integer("is_crew").default(0),
+    /** Crew job label ("Director", "Writer", "Screenplay"). Nullable for cast. */
+    crewJob: text("crew_job"),
+  },
+  (table) => [
+    uniqueIndex("movie_cast_unique_idx").on(
+      table.movieId,
+      table.tmdbPersonId,
+      table.crewJob,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Movie Providers – junction: which movies are on which services
 // ---------------------------------------------------------------------------
 export const movieProviders = sqliteTable(

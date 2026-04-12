@@ -124,6 +124,32 @@ export interface TmdbWatchProvidersResponse {
   results: Record<string, TmdbWatchProviderCountry>;
 }
 
+export interface TmdbCastMember {
+  id: number;
+  name: string;
+  character: string;
+  profile_path: string | null;
+  order: number;
+  cast_id?: number;
+  credit_id?: string;
+  popularity?: number;
+}
+
+export interface TmdbCrewMember {
+  id: number;
+  name: string;
+  job: string;
+  department: string;
+  profile_path: string | null;
+  credit_id?: string;
+}
+
+export interface TmdbCreditsResponse {
+  id: number;
+  cast: TmdbCastMember[];
+  crew: TmdbCrewMember[];
+}
+
 // ---------------------------------------------------------------------------
 // Rate limiter – simple sliding-window queue
 // ---------------------------------------------------------------------------
@@ -296,6 +322,21 @@ export async function getMovieCertifications(
   // Fallback: any release with a certification
   const anyWithCert = usEntry.release_dates.find((rd) => rd.certification);
   return anyWithCert?.certification ?? null;
+}
+
+/**
+ * Get cast + crew credits for a movie.
+ *
+ * Used by the Phase 2 enrichment pipeline to populate the `movie_cast`
+ * table. The response can be large (50+ cast, 50+ crew); callers should
+ * trim to top N cast by `order` and filter crew to Director/Writer.
+ */
+export async function getMovieCredits(
+  tmdbId: number,
+): Promise<TmdbCreditsResponse> {
+  return tmdbFetch<TmdbCreditsResponse>(`/movie/${tmdbId}/credits`, {
+    language: "en-US",
+  });
 }
 
 /**
