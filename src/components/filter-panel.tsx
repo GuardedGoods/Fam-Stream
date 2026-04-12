@@ -2,6 +2,7 @@
 
 import { ArrowDownNarrowWide, ArrowUpNarrowWide, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { maskProfanity } from "@/lib/filters/mask";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -220,13 +221,14 @@ function FilterContent({
                   })
                 }
                 className={cn(
-                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium font-mono border transition-colors",
                   checked
                     ? "bg-red-600 text-white border-red-600 dark:bg-red-500 dark:border-red-500"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800"
                 )}
+                title={`Block movies containing this word`}
               >
-                {word}
+                {maskProfanity(word)}
               </button>
             );
           })}

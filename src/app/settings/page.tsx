@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Save, Plus, X, Tv, Shield, Ban } from "lucide-react";
+import { maskProfanity } from "@/lib/filters/mask";
 
 interface StreamingService {
   id: number;
@@ -234,9 +235,10 @@ export default function SettingsPage() {
           {blockedWords.map((word) => (
             <span
               key={word}
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-destructive/10 text-destructive text-sm"
+              title="Word hidden — click X to remove"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-destructive/10 text-destructive text-sm font-mono"
             >
-              {word}
+              {maskProfanity(word)}
               <button
                 onClick={() => removeBlockedWord(word)}
                 className="hover:bg-destructive/20 rounded-full p-0.5"
