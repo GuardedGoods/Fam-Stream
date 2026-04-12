@@ -216,26 +216,27 @@ async function syncMovies() {
   // page tags 20 movies at once.
   await populateMpaaRatings();
 
-  if (totalInserted === 0) {
-    // If movies already exist this just means nothing new was found — that's fine.
-    const existingCount = db.select({ count: sql<number>`count(*)` }).from(movies).get()?.count || 0;
-    if (existingCount === 0) {
-      console.error("Phase 1 inserted 0 movies and DB is empty. Check TMDB API key and database connectivity.");
-      return;
-    }
-    console.log(`Phase 1: No new movies found (${existingCount} already in DB). Skipping Phase 2.`);
-    return;
-  }
+  console.log(`Phase 1 complete. ${totalInserted} new movies added.`);
 
+  // Phase 2 used to early-return here when totalInserted === 0, which meant
+  // that once Phase 1 plateaued (all TMDB discover pages returned only
+  // movies we'd already seen), no existing movie ever got topped up with
+  // OMDb ratings / imdbId. Result: 12h production uptime with zero
+  // Rotten Tomatoes scores. The fix is to ALWAYS run Phase 2 over any
+  // movie that's missing enrichment, not gate it on "did we just insert
+  // something new?".
   console.log("Starting Phase 2 enrichment...");
 
-  // Phase 2: Enrich movies with details, ratings, and providers
-  // This runs in background - movies are already visible
+  // Phase 2: Enrich movies missing EITHER an imdbId (never enriched) OR a
+  // rottenTomatoesScore (imdbId was fetched but OMDb call failed / was
+  // rate-limited / OMDB_API_KEY was missing that day).
   const moviesToEnrich = db
     .select({ id: movies.id, tmdbId: movies.tmdbId, title: movies.title })
     .from(movies)
-    .where(isNull(movies.imdbId))
-    .limit(2000)
+    .where(
+      sql`${movies.imdbId} IS NULL OR ${movies.rottenTomatoesScore} IS NULL`,
+    )
+    .limit(500) // Smaller batch (was 2000) so a single cron completes reliably.
     .all();
 
   let enriched = 0;
@@ -471,7 +472,7 @@ async function syncContentRatings() {
       eq(movies.id, contentRatingsAggregated.movieId)
     )
     .where(isNull(contentRatingsAggregated.id))
-    .limit(200) // Process 200 at a time
+    .limit(500) // Was 200 — scrapers are slow, but larger batches shake out more on each daily run.
     .all();
 
   console.log(

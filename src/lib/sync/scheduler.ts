@@ -49,6 +49,24 @@ export function initScheduler() {
 
   console.log("[scheduler] Initializing sync scheduler...");
 
+  // Surface missing enrichment env vars LOUDLY at boot. Without these, the
+  // per-movie error for each of thousands of films is swallowed by the
+  // orchestrator's catch blocks, so the symptom is "no scores ever" with
+  // no obvious log line. One WARN at startup is easier to notice in
+  // `docker logs`.
+  if (!process.env.OMDB_API_KEY) {
+    console.warn(
+      "[scheduler] WARNING: OMDB_API_KEY is not set. Rotten Tomatoes / " +
+        "Metacritic / IMDb ratings will NEVER populate. Set it in your " +
+        ".env and restart the container.",
+    );
+  }
+  if (!process.env.TMDB_API_KEY) {
+    console.warn(
+      "[scheduler] WARNING: TMDB_API_KEY is not set. Movie sync will fail.",
+    );
+  }
+
   // Daily at 3 AM — sync new movies from TMDB
   cron.schedule("0 3 * * *", () => safeRun("daily movie sync", "movies"));
 
