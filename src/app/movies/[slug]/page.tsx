@@ -1,16 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import {
-  ArrowLeft,
-  Clock,
-  Calendar,
-  ExternalLink,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, Clock, Calendar, ShieldCheck } from "lucide-react";
 import { ContentBadge } from "@/components/content-badge";
 import { StreamingBadges } from "@/components/streaming-badges";
 import { WatchlistButton } from "@/components/watchlist-button";
 import { MovieCast, type CastRow } from "@/components/movie-cast";
+import { SourceBreakdown } from "@/components/source-breakdown";
 import { getImageUrl, getYear, formatRuntime } from "@/lib/utils";
 import { maskProfanity } from "@/lib/filters/mask";
 import type { StreamingProviderInfo } from "@/types";
@@ -212,15 +207,6 @@ function getMovie(slug: string) {
       crewJob: row.crewJob,
     })) as CastRow[],
   };
-}
-
-function formatSourceName(source: string): string {
-  switch (source) {
-    case "kids-in-mind": return "Kids-In-Mind";
-    case "imdb": return "IMDb Parental Guide";
-    case "common-sense-media": return "Common Sense Media";
-    default: return source;
-  }
 }
 
 export default async function MovieDetailPage({
@@ -539,137 +525,11 @@ export default async function MovieDetailPage({
           </section>
         )}
 
-        {/* Per-Source Content Breakdown */}
-        {movie.contentSources && movie.contentSources.length > 0 && (
-          <section className="mt-16 mb-20 space-y-5">
-            <h2 className="small-caps text-[12px] text-muted-foreground">
-              Ratings by Source
-            </h2>
-            <div className="space-y-3">
-              {movie.contentSources.map(
-                (source: {
-                  source: string;
-                  languageScore: number | null;
-                  violenceScore: number | null;
-                  sexualContentScore: number | null;
-                  scaryScore: number | null;
-                  languageNotes: string | null;
-                  violenceNotes: string | null;
-                  sexualNotes: string | null;
-                  scaryNotes: string | null;
-                  profanityWords: Record<string, number>;
-                  recommendedAge: number | null;
-                  sourceUrl: string | null;
-                }) => (
-                  <details
-                    key={source.source}
-                    className="group border border-border overflow-hidden rounded-md transition-colors hover:border-foreground/20"
-                  >
-                    <summary className="flex items-center justify-between gap-3 p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-serif text-base truncate">
-                          {formatSourceName(source.source)}
-                        </span>
-                        {source.recommendedAge && (
-                          <span className="small-caps text-[10px] text-muted-foreground shrink-0">
-                            Ages {source.recommendedAge}+
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {source.languageScore !== null && (
-                          <ContentBadge
-                            score={source.languageScore}
-                            label="L"
-                            size="sm"
-                          />
-                        )}
-                        {source.violenceScore !== null && (
-                          <ContentBadge
-                            score={source.violenceScore}
-                            label="V"
-                            size="sm"
-                          />
-                        )}
-                        {source.sexualContentScore !== null && (
-                          <ContentBadge
-                            score={source.sexualContentScore}
-                            label="S"
-                            size="sm"
-                          />
-                        )}
-                        {source.scaryScore !== null && (
-                          <ContentBadge
-                            score={source.scaryScore}
-                            label="F"
-                            size="sm"
-                          />
-                        )}
-                        {source.sourceUrl && (
-                          <a
-                            href={source.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-primary ml-1 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label="Open source"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                      </div>
-                    </summary>
-                    <div className="border-t border-border p-5 space-y-4 bg-muted/20">
-                      {Object.keys(source.profanityWords).length > 0 && (
-                        <div>
-                          <p className="small-caps text-[10px] text-muted-foreground mb-2">
-                            Language Found
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {Object.entries(source.profanityWords).map(
-                              ([word, count]) => (
-                                <span
-                                  key={word}
-                                  title={`${word}${(count as number) > 1 ? ` — ${count}×` : ""}`}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] text-destructive bg-destructive/10 border border-destructive/20 rounded-sm"
-                                >
-                                  <span>{maskProfanity(word)}</span>
-                                  {(count as number) > 1 && (
-                                    <span className="text-destructive/70 tabular-nums">
-                                      ×{count}
-                                    </span>
-                                  )}
-                                </span>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {source.languageNotes && (
-                        <NoteBlock label="Language" text={source.languageNotes} />
-                      )}
-                      {source.violenceNotes && (
-                        <NoteBlock label="Violence" text={source.violenceNotes} />
-                      )}
-                      {source.sexualNotes && (
-                        <NoteBlock
-                          label="Sexual Content"
-                          text={source.sexualNotes}
-                        />
-                      )}
-                      {source.scaryNotes && (
-                        <NoteBlock
-                          label="Frightening"
-                          text={source.scaryNotes}
-                        />
-                      )}
-                    </div>
-                  </details>
-                )
-              )}
-            </div>
-          </section>
-        )}
+        {/* Per-Source Content Breakdown — extracted to a Client Component
+            in 4H because its `onClick={e.stopPropagation()}` on the source
+            link couldn't cross the server/client boundary (Next.js error
+            digest 2877816754 for every movie that had source URLs). */}
+        <SourceBreakdown sources={movie.contentSources ?? []} />
       </div>
     </div>
   );
@@ -721,13 +581,3 @@ function DetailCard({ label, text }: { label: string; text: string }) {
   );
 }
 
-function NoteBlock({ label, text }: { label: string; text: string }) {
-  return (
-    <div>
-      <p className="small-caps text-[10px] text-muted-foreground mb-1">
-        {label}
-      </p>
-      <p className="text-[14px] leading-relaxed text-foreground/80">{text}</p>
-    </div>
-  );
-}
