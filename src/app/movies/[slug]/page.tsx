@@ -35,33 +35,71 @@ function getMovie(slug: string) {
 
   if (!movie) return null;
 
-  const aggregated = db
-    .select()
-    .from(contentRatingsAggregated)
-    .where(eq(contentRatingsAggregated.movieId, movie.id))
-    .get();
+  // Phase 4G diagnostic wrapping — each sub-query isolated so an exception
+  // in one doesn't 500 the whole detail page. Three detail pages
+  // (ids 1/2/3/6/7) were reliably 500ing with Next.js error digest
+  // "2877816754" after Phase 4F deploy, and without docker logs access
+  // we couldn't see which query threw. Now each failure logs its own
+  // tagged error line, the page degrades to empty sections, and the
+  // surrounding render still succeeds.
 
-  const sources = db
-    .select()
-    .from(contentRatings)
-    .where(eq(contentRatings.movieId, movie.id))
-    .all();
+  let aggregated: typeof contentRatingsAggregated.$inferSelect | undefined;
+  try {
+    aggregated = db
+      .select()
+      .from(contentRatingsAggregated)
+      .where(eq(contentRatingsAggregated.movieId, movie.id))
+      .get();
+  } catch (e) {
+    console.error(
+      `[movie-detail:aggregated] ${movie.slug} id=${movie.id}:`,
+      e instanceof Error ? e.message : e,
+    );
+  }
 
-  const providers = db
-    .select({
-      id: streamingProviders.id,
-      name: streamingProviders.name,
-      logoPath: streamingProviders.logoPath,
-      type: movieProviders.type,
-      link: movieProviders.link,
-    })
-    .from(movieProviders)
-    .innerJoin(
-      streamingProviders,
-      eq(movieProviders.providerId, streamingProviders.id)
-    )
-    .where(eq(movieProviders.movieId, movie.id))
-    .all();
+  let sources: Array<typeof contentRatings.$inferSelect> = [];
+  try {
+    sources = db
+      .select()
+      .from(contentRatings)
+      .where(eq(contentRatings.movieId, movie.id))
+      .all();
+  } catch (e) {
+    console.error(
+      `[movie-detail:sources] ${movie.slug} id=${movie.id}:`,
+      e instanceof Error ? e.message : e,
+    );
+  }
+
+  let providers: Array<{
+    id: number;
+    name: string;
+    logoPath: string | null;
+    type: string;
+    link: string | null;
+  }> = [];
+  try {
+    providers = db
+      .select({
+        id: streamingProviders.id,
+        name: streamingProviders.name,
+        logoPath: streamingProviders.logoPath,
+        type: movieProviders.type,
+        link: movieProviders.link,
+      })
+      .from(movieProviders)
+      .innerJoin(
+        streamingProviders,
+        eq(movieProviders.providerId, streamingProviders.id),
+      )
+      .where(eq(movieProviders.movieId, movie.id))
+      .all();
+  } catch (e) {
+    console.error(
+      `[movie-detail:providers] ${movie.slug} id=${movie.id}:`,
+      e instanceof Error ? e.message : e,
+    );
+  }
 
   // Phase 4C — pull cast + director/writers. Cast sorted by billing order
   // (lead first), crew trails (isCrew=1) regardless of order. SQLite puts
@@ -191,8 +229,51 @@ export default async function MovieDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const movie = getMovie(slug);
-  const currentStatus = movie ? await getUserMovieStatus(movie.id) : null;
+
+  // Phase 4G — wrap the whole data fetch in an outer try/catch so that a
+  // malformed DB row or unexpected shape ends in a friendly fallback
+  // rather than Next.js's "Application error" generic 500. The getMovie
+  // sub-queries are now individually try/caught too, but this is the
+  // safety net for anything thrown during the fallthrough mappers
+  // (JSON.parse inside contentSources, getUserMovieStatus, etc.).
+  let movie: ReturnType<typeof getMovie> = null;
+  let currentStatus: Awaited<ReturnType<typeof getUserMovieStatus>> = null;
+  let loadError: string | null = null;
+  try {
+    movie = getMovie(slug);
+    if (movie) {
+      currentStatus = await getUserMovieStatus(movie.id);
+    }
+  } catch (e) {
+    loadError = e instanceof Error ? e.message : String(e);
+    console.error(
+      `[movie-detail:fatal] slug=${slug}:`,
+      e instanceof Error ? e.stack ?? e.message : e,
+    );
+  }
+
+  if (loadError) {
+    // Degrade to a soft error page rather than throwing further up —
+    // user gets a readable page + Back to Browse instead of a browser
+    // hard-error. The tagged stack is in the container logs for us to
+    // diagnose.
+    return (
+      <div className="container mx-auto px-4 max-w-3xl py-24 text-center">
+        <h1 className="font-serif text-4xl sm:text-5xl">Unable to load</h1>
+        <p className="text-muted-foreground mt-4 max-w-prose mx-auto">
+          We hit an unexpected error rendering this film. It&apos;s been logged
+          and we&apos;ll look into it.
+        </p>
+        <Link
+          href="/movies"
+          className="inline-flex items-center gap-2 mt-8 text-sm small-caps text-primary hover:underline"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to Browse
+        </Link>
+      </div>
+    );
+  }
 
   if (!movie) {
     return (
