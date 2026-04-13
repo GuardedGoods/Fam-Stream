@@ -32,6 +32,17 @@ const protectedApiPrefixes = [
   "/api/admin",
 ];
 
+/**
+ * Routes that require the signed-in user's email to be in `ADMIN_EMAILS`.
+ * Non-admin signed-in users are redirected to /movies (page) or given
+ * 401 (API) — hiding these surfaces from non-admins completely.
+ *
+ * Auth.js session's `user.isAdmin` flag is computed in the JWT callback
+ * (src/lib/auth/config.ts) from the same ADMIN_EMAILS list, so this
+ * check is consistent with the backend admin gates.
+ */
+const adminOnlyPrefixes = ["/admin", "/api/admin"];
+
 export const proxy = authProxy((req) => {
   const { pathname } = req.nextUrl;
 
@@ -64,6 +75,29 @@ export const proxy = authProxy((req) => {
     const signInUrl = new URL("/auth/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signInUrl);
+  }
+
+  // Admin-only gate: signed-in but not an admin → quiet redirect away
+  // from /admin, or 401 for /api/admin. Keeps the admin surface hidden
+  // from non-admin users who happen to know the URL.
+  if (isAuthenticated) {
+    const isAdminRoute = adminOnlyPrefixes.some((prefix) =>
+      pathname.startsWith(prefix),
+    );
+    if (isAdminRoute) {
+      const isAdmin = Boolean(
+        (req.auth?.user as { isAdmin?: boolean } | undefined)?.isAdmin,
+      );
+      if (!isAdmin) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Forbidden" },
+            { status: 401 },
+          );
+        }
+        return NextResponse.redirect(new URL("/movies", req.url));
+      }
+    }
   }
 
   return NextResponse.next();

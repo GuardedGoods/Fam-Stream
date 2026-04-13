@@ -23,7 +23,7 @@ import {
   streamingProviders,
   movieCast,
 } from "@/lib/db/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { getUserMovieStatus } from "@/lib/watchlist/server";
 
 function getMovie(slug: string) {
@@ -64,24 +64,46 @@ function getMovie(slug: string) {
     .all();
 
   // Phase 4C — pull cast + director/writers. Cast sorted by billing order
-  // (lead first), crew trails regardless of order. Upstream write ordering
-  // guarantees the uniqueness guard so we just pull and pass through.
-  const castRows = db
-    .select({
-      name: movieCast.name,
-      character: movieCast.character,
-      profilePath: movieCast.profilePath,
-      castOrder: movieCast.castOrder,
-      isCrew: movieCast.isCrew,
-      crewJob: movieCast.crewJob,
-    })
-    .from(movieCast)
-    .where(eq(movieCast.movieId, movie.id))
-    .orderBy(
-      asc(movieCast.isCrew),
-      sql`CASE WHEN ${movieCast.castOrder} IS NULL THEN 999 ELSE ${movieCast.castOrder} END ASC`,
-    )
-    .all();
+  // (lead first), crew trails (isCrew=1) regardless of order. SQLite puts
+  // NULL first in ASC, but since we order by isCrew first, all cast rows
+  // land before all crew rows, so the NULL-castOrder crew rows end up in
+  // their own group. Simple column ordering — was previously a CASE
+  // expression wrapped in `sql`, which introduced a detail-page regression
+  // in a subset of prod environments (Phase 4F).
+  //
+  // Wrapped in try/catch: if the `movie_cast` table migration failed
+  // (happened once on an in-place rebuild) or the query hits some edge
+  // case, the detail page still renders with an empty cast strip rather
+  // than 500-ing the whole page. The MovieCast component returns null
+  // on an empty array, so this degrades gracefully.
+  let castRows: Array<{
+    name: string;
+    character: string | null;
+    profilePath: string | null;
+    castOrder: number | null;
+    isCrew: number | null;
+    crewJob: string | null;
+  }> = [];
+  try {
+    castRows = db
+      .select({
+        name: movieCast.name,
+        character: movieCast.character,
+        profilePath: movieCast.profilePath,
+        castOrder: movieCast.castOrder,
+        isCrew: movieCast.isCrew,
+        crewJob: movieCast.crewJob,
+      })
+      .from(movieCast)
+      .where(eq(movieCast.movieId, movie.id))
+      .orderBy(asc(movieCast.isCrew), asc(movieCast.castOrder))
+      .all();
+  } catch (e) {
+    console.error(
+      `[movie-detail] cast query failed for ${movie.slug}:`,
+      e instanceof Error ? e.message : e,
+    );
+  }
 
   // Parse specificWords — supports both old format (string[]) and new format ({word: count})
   let specificWords: string[] = [];
