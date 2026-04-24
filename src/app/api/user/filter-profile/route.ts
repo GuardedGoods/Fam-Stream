@@ -100,11 +100,16 @@ export async function PUT(request: NextRequest) {
       )
       .get();
 
+    const clamp05 = (v: unknown, fallback: number) => {
+      if (typeof v !== "number" || isNaN(v)) return fallback;
+      return Math.max(0, Math.min(Math.round(v), 5));
+    };
+
     const payload = {
-      maxLanguageScore: body.maxLanguageScore ?? 2,
-      maxViolenceScore: body.maxViolenceScore ?? 3,
-      maxSexualContentScore: body.maxSexualContentScore ?? 1,
-      maxScaryScore: body.maxScaryScore ?? 3,
+      maxLanguageScore: clamp05(body.maxLanguageScore, 2),
+      maxViolenceScore: clamp05(body.maxViolenceScore, 3),
+      maxSexualContentScore: clamp05(body.maxSexualContentScore, 1),
+      maxScaryScore: clamp05(body.maxScaryScore, 3),
       maxMpaa: body.maxMpaa ?? "PG",
     };
 

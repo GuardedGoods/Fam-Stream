@@ -115,9 +115,9 @@ export async function POST(request: NextRequest) {
   try {
     const { movieId, status = "watchlist" } = await request.json();
 
-    if (!movieId) {
+    if (!movieId || typeof movieId !== "number" || movieId <= 0 || !Number.isInteger(movieId)) {
       return NextResponse.json(
-        { error: "movieId is required" },
+        { error: "movieId must be a positive integer" },
         { status: 400 }
       );
     }
@@ -179,6 +179,13 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const { movieId } = await request.json();
+
+    if (!movieId || typeof movieId !== "number" || movieId <= 0 || !Number.isInteger(movieId)) {
+      return NextResponse.json(
+        { error: "movieId must be a positive integer" },
+        { status: 400 },
+      );
+    }
 
     db.delete(userMovies)
       .where(

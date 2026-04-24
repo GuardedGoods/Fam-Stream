@@ -99,7 +99,7 @@ export function WatchlistButton({
           aria-pressed={watched}
           className={cn(
             "min-w-[10rem]",
-            watched && "bg-green-600 hover:bg-green-700 text-white border-green-600",
+            watched && "bg-[var(--score-0)] hover:bg-[var(--score-0)]/90 text-white border-[var(--score-0)]",
           )}
         >
           {loading === "watched" ? (

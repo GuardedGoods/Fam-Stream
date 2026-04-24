@@ -73,7 +73,7 @@ function FilterContent({
     <div className="space-y-6">
       {/* Search */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-2 block">
           Search
         </Label>
         <SearchBar
@@ -86,7 +86,7 @@ function FilterContent({
 
       {/* MPAA Rating */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
           MPAA Rating
         </Label>
         <div className="flex flex-wrap gap-3">
@@ -122,7 +122,7 @@ function FilterContent({
 
       {/* Region */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
           Region
         </Label>
         <div className="flex items-center justify-between">
@@ -144,7 +144,7 @@ function FilterContent({
 
       {/* Content Score Sliders */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
           Max Content Scores
         </Label>
         <div className="space-y-4">
@@ -152,7 +152,7 @@ function FilterContent({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Language</Label>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-mono text-muted-foreground">
                 {currentFilters.maxLanguageScore ?? 5}
               </span>
             </div>
@@ -171,7 +171,7 @@ function FilterContent({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Violence</Label>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-mono text-muted-foreground">
                 {currentFilters.maxViolenceScore ?? 5}
               </span>
             </div>
@@ -190,7 +190,7 @@ function FilterContent({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Sexual</Label>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-mono text-muted-foreground">
                 {currentFilters.maxSexualContentScore ?? 5}
               </span>
             </div>
@@ -209,7 +209,7 @@ function FilterContent({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Scary</Label>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-mono text-muted-foreground">
                 {currentFilters.maxScaryScore ?? 5}
               </span>
             </div>
@@ -232,7 +232,7 @@ function FilterContent({
           Sliders map to 0-5 normalized (None=0, Mild=1, Moderate=3, Severe=5)
           same as the 4 core sliders. Set to 5 = no filter applied. */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
           Mature Themes
         </Label>
         <div className="space-y-4">
@@ -240,7 +240,7 @@ function FilterContent({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Alcohol, Drugs &amp; Smoking</Label>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-mono text-muted-foreground">
                 {currentFilters.maxAlcoholDrugsScore ?? 5}
               </span>
             </div>
@@ -259,7 +259,7 @@ function FilterContent({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Frightening / Intense Scenes</Label>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-mono text-muted-foreground">
                 {currentFilters.maxIntenseScenesScore ?? 5}
               </span>
             </div>
@@ -283,7 +283,7 @@ function FilterContent({
 
       {/* Blocked Words */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
           Block Specific Words
         </Label>
         <div className="flex flex-wrap gap-2">
@@ -301,8 +301,8 @@ function FilterContent({
                 className={cn(
                   "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium font-mono border transition-colors",
                   checked
-                    ? "bg-red-600 text-white border-red-600 dark:bg-red-500 dark:border-red-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800"
+                    ? "bg-destructive text-destructive-foreground border-destructive"
+                    : "bg-background text-foreground border-border hover:bg-muted"
                 )}
                 title={`Block movies containing this word`}
               >
@@ -406,12 +406,12 @@ function FilterContent({
 
       {/* Release Year */}
       <div>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+        <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
           Release Year
         </Label>
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <Label htmlFor="min-year" className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+            <Label htmlFor="min-year" className="text-xs text-muted-foreground mb-1 block">
               From
             </Label>
             <Input
@@ -430,7 +430,7 @@ function FilterContent({
             />
           </div>
           <div className="flex-1">
-            <Label htmlFor="max-year" className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+            <Label htmlFor="max-year" className="text-xs text-muted-foreground mb-1 block">
               To
             </Label>
             <Input
@@ -457,7 +457,7 @@ function FilterContent({
       {genreNames.length > 0 && (
         <>
           <div>
-            <Label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 block">
+            <Label className="small-caps text-[11px] text-muted-foreground mb-3 block">
               Genres
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -479,8 +479,8 @@ function FilterContent({
                     className={cn(
                       "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors",
                       checked
-                        ? "bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground border-border hover:bg-muted"
                     )}
                   >
                     {genre}

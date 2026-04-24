@@ -5,6 +5,7 @@ import {
   contentRatingsAggregated,
   movieProviders,
   streamingProviders,
+  userMovies,
 } from "@/lib/db/schema";
 import {
   eq,
@@ -17,15 +18,28 @@ import {
   sql,
   and,
   exists,
+  notExists,
 } from "drizzle-orm";
 import {
   usOnlyCondition,
   maxAlcoholDrugsCondition,
   maxIntenseScenesCondition,
 } from "@/lib/filters/query";
+import { auth } from "@/lib/auth";
 
 // The 7 streaming services we support
 const ALLOWED_PROVIDER_IDS = [8, 9, 337, 350, 384, 386, 531];
+
+function clampInt(raw: string | null, min: number, max: number, fallback: number): number {
+  if (!raw) return fallback;
+  const n = parseInt(raw, 10);
+  if (isNaN(n)) return fallback;
+  return Math.max(min, Math.min(n, max));
+}
+
+function escapeLikePattern(s: string): string {
+  return s.replace(/[%_]/g, "\\$&");
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -64,10 +78,11 @@ export async function GET(request: NextRequest) {
   const usOnly = searchParams.get("usOnly") === "true";
   const maxAlcoholDrugsScore = searchParams.get("maxAlcoholDrugsScore");
   const maxIntenseScenesScore = searchParams.get("maxIntenseScenesScore");
+  const hideWatched = searchParams.get("hideWatched") === "true";
   const sort = searchParams.get("sort") || "popularity";
   const sortDirection = searchParams.get("sortDirection") || "desc";
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = Math.min(parseInt(searchParams.get("limit") || "24"), 100);
+  const page = clampInt(searchParams.get("page"), 1, 10000, 1);
+  const limit = clampInt(searchParams.get("limit"), 1, 100, 24);
   const offset = (page - 1) * limit;
 
   try {
@@ -179,14 +194,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Blocked words filter — exclude movies whose specificWords JSON contains any blocked word
+    // Blocked words filter — exclude movies whose specificWords JSON contains any blocked word.
+    // Escape LIKE metacharacters so user-supplied words with % or _ don't
+    // break the pattern or match unintended rows.
     if (blockedWords && blockedWords.length > 0) {
       for (const word of blockedWords) {
+        const escaped = escapeLikePattern(word).replace(/"/g, "");
+        if (escaped.length === 0) continue;
         conditions.push(
-          sql`(${contentRatingsAggregated.specificWords} IS NULL OR ${contentRatingsAggregated.specificWords} NOT LIKE ${'%"' + word + '"%'})`
+          sql`(${contentRatingsAggregated.specificWords} IS NULL OR ${contentRatingsAggregated.specificWords} NOT LIKE ${'%"' + escaped + '"%'})`
         );
       }
       needsContentJoin = true;
+    }
+
+    // Hide Watched — exclude movies the signed-in user already marked "watched".
+    // Requires auth; ignored for anonymous users.
+    if (hideWatched) {
+      const session = await auth();
+      if (session?.user?.id) {
+        conditions.push(
+          notExists(
+            db
+              .select({ one: sql<number>`1` })
+              .from(userMovies)
+              .where(
+                and(
+                  eq(userMovies.movieId, movies.id),
+                  eq(userMovies.userId, session.user.id),
+                  eq(userMovies.status, "watched"),
+                ),
+              ),
+          ),
+        );
+      }
     }
 
     // Determine sort column

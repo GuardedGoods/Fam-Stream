@@ -7,6 +7,7 @@ import {
   userFilterProfiles,
   contentRatingsAggregated,
   movieProviders,
+  streamingProviders,
   recommendationCache,
 } from "@/lib/db/schema";
 import { getOpenAi, getOpenAiModel, isOpenAiEnabled } from "@/lib/apis/openai";
@@ -269,26 +270,39 @@ export function buildCandidatePool(userId: string): CandidateMovie[] {
     .limit(CANDIDATE_POOL_SIZE)
     .all();
 
-  // Per-candidate: which subscribed services (or all services if user has
-  // none configured) actually carry the movie.
-  const providerLookup = subscribedProviderIds.length > 0
-    ? subscribedProviderIds
-    : undefined;
+  // Batch provider lookup — one query instead of N+1 (was 40 extra queries).
+  const movieIds = rows.map((r) => r.id);
+  const providerMap = new Map<number, string[]>();
+  if (movieIds.length > 0) {
+    const providerRows = db
+      .select({
+        movieId: movieProviders.movieId,
+        name: sql<string>`${streamingProviders}.name`,
+      })
+      .from(movieProviders)
+      .innerJoin(
+        streamingProviders,
+        eq(movieProviders.providerId, streamingProviders.id),
+      )
+      .where(
+        and(
+          inArray(movieProviders.movieId, movieIds),
+          eq(movieProviders.type, "flatrate"),
+          ...(subscribedProviderIds.length > 0
+            ? [inArray(movieProviders.providerId, subscribedProviderIds)]
+            : []),
+        ),
+      )
+      .all();
+
+    for (const row of providerRows) {
+      const list = providerMap.get(row.movieId) ?? [];
+      if (row.name && !list.includes(row.name)) list.push(row.name);
+      providerMap.set(row.movieId, list);
+    }
+  }
 
   return rows.map((r) => {
-    const providerNames = db
-      .select({ name: sql<string>`sp.name` })
-      .from(sql`${movieProviders} mp`)
-      .innerJoin(sql`streaming_providers sp`, sql`mp.provider_id = sp.id`)
-      .where(
-        providerLookup
-          ? sql`mp.movie_id = ${r.id} AND mp.type = 'flatrate' AND mp.provider_id IN (${sql.join(providerLookup.map((id) => sql`${id}`), sql`, `)})`
-          : sql`mp.movie_id = ${r.id} AND mp.type = 'flatrate'`,
-      )
-      .all()
-      .map((row) => row.name)
-      .filter((n): n is string => Boolean(n));
-
     let genres: string[] = [];
     if (r.genres) {
       try {
@@ -313,7 +327,7 @@ export function buildCandidatePool(userId: string): CandidateMovie[] {
         sexual: r.sexual,
         scary: r.scary,
       },
-      availableOn: Array.from(new Set(providerNames)),
+      availableOn: providerMap.get(r.id) ?? [],
     };
   });
 }

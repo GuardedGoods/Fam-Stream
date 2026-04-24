@@ -22,8 +22,8 @@ export function StreamingBadges({ providers, size = "sm" }: StreamingBadgesProps
             className={cn(
               "relative rounded-md overflow-hidden border",
               isFlatrate
-                ? "border-gray-300 dark:border-gray-600"
-                : "border-gray-200 dark:border-gray-700 opacity-60 grayscale"
+                ? "border-border"
+                : "border-border opacity-60 grayscale"
             )}
             title={`${provider.name} (${provider.type})`}
           >
@@ -38,7 +38,7 @@ export function StreamingBadges({ providers, size = "sm" }: StreamingBadgesProps
             ) : (
               <div
                 className={cn(
-                  "flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-[8px] font-medium text-gray-500 dark:text-gray-400",
+                  "flex items-center justify-center bg-muted text-[8px] font-medium text-muted-foreground",
                   size === "sm" ? "h-5 w-5" : "h-7 w-7"
                 )}
               >
