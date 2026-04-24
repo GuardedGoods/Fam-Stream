@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { userFilterProfiles, users } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
+import { clampScore } from "@/lib/validation";
 
 /**
  * GET/PUT the signed-in user's default filter profile.
@@ -100,16 +101,11 @@ export async function PUT(request: NextRequest) {
       )
       .get();
 
-    const clamp05 = (v: unknown, fallback: number) => {
-      if (typeof v !== "number" || isNaN(v)) return fallback;
-      return Math.max(0, Math.min(Math.round(v), 5));
-    };
-
     const payload = {
-      maxLanguageScore: clamp05(body.maxLanguageScore, 2),
-      maxViolenceScore: clamp05(body.maxViolenceScore, 3),
-      maxSexualContentScore: clamp05(body.maxSexualContentScore, 1),
-      maxScaryScore: clamp05(body.maxScaryScore, 3),
+      maxLanguageScore: clampScore(body.maxLanguageScore, 2),
+      maxViolenceScore: clampScore(body.maxViolenceScore, 3),
+      maxSexualContentScore: clampScore(body.maxSexualContentScore, 1),
+      maxScaryScore: clampScore(body.maxScaryScore, 3),
       maxMpaa: body.maxMpaa ?? "PG",
     };
 

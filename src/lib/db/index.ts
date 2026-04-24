@@ -4,7 +4,14 @@ import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
 
-let _db: BetterSQLite3Database<typeof schema> | null = null;
+// Use globalThis to survive Next.js dev-mode hot reloads. Without this,
+// each HMR cycle creates a new DB connection while the old one leaks,
+// eventually causing "database is locked" errors.
+const globalForDb = globalThis as unknown as {
+  __movienight_db?: BetterSQLite3Database<typeof schema>;
+};
+let _db: BetterSQLite3Database<typeof schema> | null =
+  globalForDb.__movienight_db ?? null;
 
 function getDbPath(): string {
   return (
@@ -278,6 +285,7 @@ export function getDb(): BetterSQLite3Database<typeof schema> {
     runMigrations(sqlite);
 
     _db = drizzle(sqlite, { schema });
+    globalForDb.__movienight_db = _db;
   }
   return _db;
 }

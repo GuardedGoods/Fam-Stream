@@ -299,7 +299,7 @@ function FilterContent({
                   })
                 }
                 className={cn(
-                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium font-mono border transition-colors",
+                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium font-mono border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                   checked
                     ? "bg-destructive text-destructive-foreground border-destructive"
                     : "bg-background text-foreground border-border hover:bg-muted"
@@ -477,7 +477,7 @@ function FilterContent({
                       })
                     }
                     className={cn(
-                      "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                      "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       checked
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background text-foreground border-border hover:bg-muted"

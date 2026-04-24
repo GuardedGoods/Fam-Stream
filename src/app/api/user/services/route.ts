@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { validateIdArray } from "@/lib/validation";
 
 export async function GET() {
   const session = await auth();
@@ -65,18 +66,11 @@ export async function PUT(request: NextRequest) {
   try {
     const { services: activeServiceIds } = await request.json();
 
-    if (activeServiceIds !== undefined && activeServiceIds !== null) {
-      if (
-        !Array.isArray(activeServiceIds) ||
-        !activeServiceIds.every(
-          (id: unknown) => typeof id === "number" && Number.isInteger(id) && id > 0,
-        )
-      ) {
-        return NextResponse.json(
-          { error: "services must be an array of positive integers" },
-          { status: 400 },
-        );
-      }
+    if (activeServiceIds != null && validateIdArray(activeServiceIds) === null) {
+      return NextResponse.json(
+        { error: "services must be an array of positive integers" },
+        { status: 400 },
+      );
     }
 
     // Remove all existing

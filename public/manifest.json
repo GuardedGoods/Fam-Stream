@@ -1,0 +1,16 @@
+{
+  "name": "MovieNight",
+  "short_name": "MovieNight",
+  "description": "Family movie night made easy — find age-appropriate films across your streaming services.",
+  "start_url": "/movies",
+  "display": "standalone",
+  "background_color": "#1c1917",
+  "theme_color": "#1c1917",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "256x256",
+      "type": "image/x-icon"
+    }
+  ]
+}

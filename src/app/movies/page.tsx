@@ -409,7 +409,15 @@ function MoviesPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
+  // Abort in-flight fetches when filters change so stale responses
+  // from a slower earlier request can't overwrite fresher results.
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchMovies = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const append = appendNextFetch.current;
     appendNextFetch.current = false;
     if (append) {
@@ -462,7 +470,9 @@ function MoviesPageInner() {
       if (filters.maxYear !== undefined)
         params.set("maxYear", String(filters.maxYear));
 
-      const res = await fetch(`/api/movies?${params.toString()}`);
+      const res = await fetch(`/api/movies?${params.toString()}`, {
+        signal: controller.signal,
+      });
       if (res.ok) {
         const data = await res.json();
         if (append) {
@@ -473,6 +483,7 @@ function MoviesPageInner() {
         setTotal(data.total || 0);
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("Failed to fetch movies:", err);
     } finally {
       setLoading(false);

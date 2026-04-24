@@ -38,6 +38,8 @@ export default async function RootLayout({
          * system fonts if the stylesheet fails to load. The preconnect
          * hints are the standard recommendation for minimizing FOUT.
          */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1c1917" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"

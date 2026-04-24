@@ -26,20 +26,9 @@ import {
   maxIntenseScenesCondition,
 } from "@/lib/filters/query";
 import { auth } from "@/lib/auth";
+import { clampInt, escapeLikePattern } from "@/lib/validation";
 
-// The 7 streaming services we support
 const ALLOWED_PROVIDER_IDS = [8, 9, 337, 350, 384, 386, 531];
-
-function clampInt(raw: string | null, min: number, max: number, fallback: number): number {
-  if (!raw) return fallback;
-  const n = parseInt(raw, 10);
-  if (isNaN(n)) return fallback;
-  return Math.max(min, Math.min(n, max));
-}
-
-function escapeLikePattern(s: string): string {
-  return s.replace(/[%_]/g, "\\$&");
-}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
